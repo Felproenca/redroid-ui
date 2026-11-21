@@ -96,6 +96,138 @@ async function dispatchAction(actionName) {
   }
 }
 
+
+const showNewAgentModal = ref(false)
+const newAgentSaving = ref(false)
+const agentForm = ref({
+  agent_id: '',
+  client_id: 'cli_mkos_saas',
+  name: '',
+  role: 'support_and_sales',
+  system_prompt: '',
+  model: 'gemini-2.0-flash',
+  tools_allowed_text: 'search_catalog, check_order_status, send_pix_charge',
+  monthly_spend_limit_usd: 25.0
+})
+
+const presetTemplates = [
+  {
+    icon: '📞',
+    title: 'Atendimento & Vendas 24/7',
+    desc: 'Atendimento humanizado, qualificação de leads, catálogo e links Pix.',
+    role: 'support_and_sales',
+    defaultName: 'Clara - Vendas WhatsApp',
+    model: 'gemini-2.0-flash',
+    tools: 'search_catalog, check_order_status, send_pix_charge',
+    prompt: 'Você é a Clara, especialista em atendimento e vendas no WhatsApp. Seja acolhedora, recomende produtos e ajude no fechamento de pedidos com pagamento Pix.'
+  },
+  {
+    icon: '📅',
+    title: 'Operações & No-Show',
+    desc: 'Monitora agendamentos, envia lembretes interativos e previne faltas.',
+    role: 'operations_mkos',
+    defaultName: 'MKOS - Gestor de Presença',
+    model: 'gemini-2.0-flash',
+    tools: 'sync_mural_n8n, check_no_show, send_whatsapp_reminder',
+    prompt: 'Você é o especialista de operações MKOS. Monitore consultas e agendamentos nas próximas 24 horas, confirmando presença e reagendando faltas de forma proativa.'
+  },
+  {
+    icon: '💰',
+    title: 'Cobrança & Régua Financeira',
+    desc: 'Régua preventiva de vencimento, recuperação amigável e 2ª via de boleto/Pix.',
+    role: 'billing_finance',
+    defaultName: 'May - Cobrança & Finanças',
+    model: 'gemini-2.0-flash',
+    tools: 'query_due_invoices, generate_pix_qr, send_whatsapp_template',
+    prompt: 'Você é a May, responsável pela régua de relacionamento financeiro. Conduza conversas empáticas para regularização de parcelas, emissão de boletos e Pix sem constrangimentos.'
+  },
+  {
+    icon: '📚',
+    title: 'Suporte Técnico & Base RAG',
+    desc: 'Tira dúvidas em manuais técnicos, PDFs de seguradoras ou documentação de sistemas.',
+    role: 'technical_support',
+    defaultName: 'Sara - Suporte Especializado',
+    model: 'claude-3-7-sonnet',
+    tools: 'query_knowledge_base, inspect_system_logs, escalate_to_human',
+    prompt: 'Você é a Sara, assistente técnica de nível 2. Responda com base estrita na base de conhecimento oficial e manuais, escalando para humanos quando necessário.'
+  },
+  {
+    icon: '🎬',
+    title: 'Conteúdo UGC & Vídeos Cinematográficos',
+    desc: 'Roteiros persuasivos, renderização Remotion 9:16 e injeção na galeria.',
+    role: 'content_creator',
+    defaultName: 'Leo - Produtor UGC',
+    model: 'gemini-2.0-flash',
+    tools: 'generate_remotion_video, inject_android_gallery, send_whatsapp_media',
+    prompt: 'Você cria roteiros e vídeos curtos cinematográficos para Instagram Reels, TikTok e WhatsApp Status.'
+  },
+  {
+    icon: '🤖',
+    title: 'Operador de Celular Android (Anti-Ban)',
+    desc: 'Automação mecânica no app nativo: swipes orgânicos, visualização de stories e postagens.',
+    role: 'android_operator',
+    defaultName: 'Alex - Operador Mobile',
+    model: 'gemini-2.0-flash',
+    tools: 'android_swipe, android_tap, android_screenshot, rotate_mobile_proxy',
+    prompt: 'Você opera o smartphone Android de forma humanizada, simulando rolagem com pausas de leitura e prevenindo bloqueios de algoritmos.'
+  }
+]
+
+function openCreateModal(preset = null) {
+  if (preset) {
+    agentForm.value.role = preset.role
+    agentForm.value.name = preset.defaultName
+    agentForm.value.model = preset.model
+    agentForm.value.tools_allowed_text = preset.tools
+    agentForm.value.system_prompt = preset.prompt
+    agentForm.value.agent_id = 'agt_' + preset.role + '_' + Math.random().toString(36).substring(2, 6)
+  } else {
+    agentForm.value.role = 'support_and_sales'
+    agentForm.value.name = 'Novo Agente Especialista'
+    agentForm.value.model = 'gemini-2.0-flash'
+    agentForm.value.tools_allowed_text = 'search_catalog, send_pix_charge'
+    agentForm.value.system_prompt = 'Você é um assistente operacional autônomo.'
+    agentForm.value.agent_id = 'agt_custom_' + Math.random().toString(36).substring(2, 6)
+  }
+  showNewAgentModal.value = true
+}
+
+async function saveAgent() {
+  if (!agentForm.value.name || !agentForm.value.agent_id) {
+    alert('Preencha o nome e o identificador do agente.')
+    return
+  }
+  newAgentSaving.value = true
+  try {
+    const tools = agentForm.value.tools_allowed_text
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean)
+
+    const payload = {
+      agent_id: agentForm.value.agent_id,
+      client_id: agentForm.value.client_id,
+      name: agentForm.value.name,
+      role: agentForm.value.role,
+      system_prompt: agentForm.value.system_prompt,
+      model: agentForm.value.model,
+      tools_allowed: tools,
+      memory_namespace: agentForm.value.client_id + '_' + agentForm.value.role,
+      status: 'idle',
+      current_thought: 'Agente operacional criado e pronto para novas tarefas.'
+    }
+
+    await api.post('/v1/agents', payload)
+    showNewAgentModal.value = false
+    await fetchInitialState()
+    alert(`Agente '${agentForm.value.name}' adicionado à equipe com sucesso!`)
+  } catch (err) {
+    alert('Erro ao salvar agente: ' + (err.response?.data?.detail || err.message))
+  } finally {
+    newAgentSaving.value = false
+  }
+}
+
 async function approveCurrentOp(taskId) {
   approveLoading.value = true
   try {
@@ -163,6 +295,9 @@ function statusLabel(status) {
           <button class="subtab-btn" :class="{ active: activeSubTab === 'paperclip' }" @click="activeSubTab = 'paperclip'">
             📎 Hierarquia Paperclip
           </button>
+          <button class="subtab-btn" :class="{ active: activeSubTab === 'builder' }" @click="activeSubTab = 'builder'">
+            🛠️ Equipe Operacional (Criar Agentes)
+          </button>
           <button class="subtab-btn" :class="{ active: activeSubTab === 'timeline' }" @click="activeSubTab = 'timeline'">
             ⚡ OpenBot Runtime (Manus Trace)
           </button>
@@ -180,7 +315,10 @@ function statusLabel(status) {
       </div>
 
       <div class="topbar-right">
-        <button class="btn btn--small btn--primary" :disabled="!!dispatchLoading" @click="dispatchAction('create_and_send_reel')">
+        <button class="btn btn--small btn--primary" @click="openCreateModal()">
+          + Criar Agente
+        </button>
+        <button class="btn btn--small btn--accent-outline" :disabled="!!dispatchLoading" @click="dispatchAction('create_and_send_reel')">
           <span v-if="dispatchLoading === 'create_and_send_reel'" class="spinner" />
           🎬 Criar Reel (Leo)
         </button>
@@ -375,6 +513,180 @@ function statusLabel(status) {
         </div>
       </div>
     </div>
+
+    <!-- CONTENT VIEW 4: AGENT STUDIO / EQUIPE OPERACIONAL -->
+    <div v-else-if="activeSubTab === 'builder'" class="builder-container">
+      <div class="builder-header">
+        <div>
+          <h3>🛠️ Studio de Agentes & Equipes Operacionais</h3>
+          <p class="builder-desc">Gerencie e crie equipes de funcionários digitais customizados por cliente e operação.</p>
+        </div>
+        <button class="btn btn--primary" @click="openCreateModal()">
+          + Novo Agente Operacional
+        </button>
+      </div>
+
+      <!-- Presets Operacionais -->
+      <div class="presets-section">
+        <h4 class="section-title">✨ Criar a Partir de um Modelo Especialista</h4>
+        <div class="presets-grid">
+          <div
+            v-for="(p, pIdx) in presetTemplates"
+            :key="pIdx"
+            class="preset-card"
+            @click="openCreateModal(p)"
+          >
+            <div class="preset-card-head">
+              <span class="preset-icon">{{ p.icon }}</span>
+              <span class="preset-badge">{{ p.role }}</span>
+            </div>
+            <h5>{{ p.title }}</h5>
+            <p>{{ p.desc }}</p>
+            <div class="preset-footer">
+              <span class="preset-model-tag">🧠 {{ p.model }}</span>
+              <button class="btn btn--small btn--primary">Configurar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agentes Ativos na Operação -->
+      <div class="roster-section">
+        <div class="roster-head">
+          <h4 class="section-title">📋 Equipe em Operação ({{ agents.length }} Agentes Ativos)</h4>
+          <span class="client-scope-tag">🏢 Cliente: {{ currentClient.client_name }}</span>
+        </div>
+
+        <div class="roster-grid">
+          <div v-for="agent in agents" :key="agent.agent_id" class="roster-card">
+            <div class="roster-card-header">
+              <div class="roster-avatar">🤖</div>
+              <div class="roster-main-info">
+                <h5>{{ agent.name }}</h5>
+                <span class="roster-role-badge">{{ agent.role }}</span>
+              </div>
+              <span class="roster-status-pill" :class="`roster-status-pill--${agent.status}`">
+                {{ agent.status }}
+              </span>
+            </div>
+
+            <div class="roster-card-body">
+              <div class="roster-meta-row">
+                <span class="meta-label">Modelo:</span>
+                <span class="meta-value font-mono">{{ agent.model }}</span>
+              </div>
+              <div class="roster-meta-row">
+                <span class="meta-label">ID do Agente:</span>
+                <span class="meta-value font-mono">{{ agent.agent_id }}</span>
+              </div>
+              <div class="roster-meta-row">
+                <span class="meta-label">Pensamento Atual:</span>
+                <span class="meta-value thought-preview">{{ agent.current_thought }}</span>
+              </div>
+              <div class="roster-tools">
+                <span v-for="t in agent.tools_allowed" :key="t" class="tool-chip">🛠️ {{ t }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: CRIAR / CONFIGURAR AGENTE OPERACIONAL -->
+    <div v-if="showNewAgentModal" class="modal-overlay" @click.self="showNewAgentModal = false">
+      <div class="agent-modal">
+        <div class="modal-header">
+          <h4>🛠️ Novo Agente da Equipe Operacional</h4>
+          <button class="close-btn" @click="showNewAgentModal = false">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Cliente / Conta:</label>
+            <select v-model="agentForm.client_id" class="form-input">
+              <option value="cli_mkos_saas">MKOS SaaS / Operações Globais</option>
+              <option value="cli_cosmeticos_natural_01">Loja Cosméticos da Terra</option>
+              <option value="cli_clinica_medica">Clínica Médica & Estética</option>
+              <option value="cli_corretora_seguros">Corretora de Seguros (MayTech Model)</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>Nome do Agente:</label>
+              <input v-model="agentForm.name" class="form-input" placeholder="Ex: Clara - Atendimento & Vendas" />
+            </div>
+            <div class="form-group flex-1">
+              <label>Identificador Único (agent_id):</label>
+              <input v-model="agentForm.agent_id" class="form-input font-mono" placeholder="Ex: agt_vendas_01" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>Papel Operacional (Role):</label>
+              <select v-model="agentForm.role" class="form-input">
+                <option value="support_and_sales">📞 Atendimento & Vendas (WhatsApp)</option>
+                <option value="operations_mkos">📅 Operações & No-Show</option>
+                <option value="billing_finance">💰 Cobrança & Régua Financeira</option>
+                <option value="technical_support">📚 Suporte Técnico & Base RAG</option>
+                <option value="content_creator">🎬 Conteúdo UGC & Vídeos Cinematográficos</option>
+                <option value="android_operator">🤖 Operador de Celular Android (Anti-Ban)</option>
+              </select>
+            </div>
+
+            <div class="form-group flex-1">
+              <label>Modelo de Inteligência Artificial:</label>
+              <select v-model="agentForm.model" class="form-input">
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Alta Velocidade / Custo Baixo)</option>
+                <option value="claude-3-7-sonnet">Claude 3.7 Sonnet (Raciocínio & RAG Profundo)</option>
+                <option value="deepseek-chat">DeepSeek-V3 (Econômico & Preciso)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Instrução do Sistema (System Prompt / Tom de Voz):</label>
+            <textarea
+              v-model="agentForm.system_prompt"
+              rows="4"
+              class="form-input textarea"
+              placeholder="Defina a personalidade, as regras de atendimento e os objetivos operacionais..."
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Ferramentas Permitidas (separadas por vírgula):</label>
+            <input
+              v-model="agentForm.tools_allowed_text"
+              class="form-input font-mono"
+              placeholder="ex: search_catalog, check_order_status, send_pix_charge"
+            />
+            <span class="form-hint">O OpenBot Security Gateway bloqueia qualquer ação que não conste nesta lista.</span>
+          </div>
+
+          <div class="form-group">
+            <label>Teto de Gastos Mensal (Kill-Switch em USD):</label>
+            <input
+              v-model.number="agentForm.monthly_spend_limit_usd"
+              type="number"
+              step="5"
+              class="form-input"
+              style="width: 160px;"
+            />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn--muted" @click="showNewAgentModal = false">Cancelar</button>
+          <button class="btn btn--primary" :disabled="newAgentSaving" @click="saveAgent">
+            <span v-if="newAgentSaving" class="spinner" />
+            Adicionar Agente à Equipe
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -843,3 +1155,349 @@ function statusLabel(status) {
   border: 1px solid rgba(168, 85, 247, 0.3);
 }
 </style>
+
+
+/* ── AGENT STUDIO / BUILDER ── */
+.builder-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  gap: 24px;
+  overflow-y: auto;
+}
+
+.builder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.builder-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.builder-desc {
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #a1a1aa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.preset-card {
+  background: #141417;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  flex-direction: column;
+}
+
+.preset-card:hover {
+  border-color: #10b981;
+  transform: translateY(-2px);
+  background: #18181b;
+}
+
+.preset-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.preset-icon {
+  font-size: 24px;
+}
+
+.preset-badge {
+  font-size: 10px;
+  background: #27272a;
+  color: #a1a1aa;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+.preset-card h5 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.preset-card p {
+  font-size: 12px;
+  color: #71717a;
+  line-height: 1.4;
+  flex: 1;
+  margin-bottom: 12px;
+}
+
+.preset-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 10px;
+}
+
+.preset-model-tag {
+  font-size: 11px;
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* Roster Section */
+.roster-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.client-scope-tag {
+  font-size: 12px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.roster-card {
+  background: #121215;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.roster-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.roster-avatar {
+  width: 38px;
+  height: 38px;
+  background: #27272a;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.roster-main-info {
+  flex: 1;
+}
+
+.roster-main-info h5 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.roster-role-badge {
+  font-size: 11px;
+  color: #a1a1aa;
+}
+
+.roster-status-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.roster-status-pill--idle { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.roster-status-pill--thinking { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.roster-status-pill--executing_tool { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.roster-status-pill--waiting_approval { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+.roster-meta-row {
+  display: flex;
+  font-size: 12px;
+  margin-bottom: 4px;
+  gap: 6px;
+}
+
+.meta-label {
+  color: #71717a;
+  min-width: 90px;
+}
+
+.meta-value {
+  color: #e4e4e7;
+}
+
+.thought-preview {
+  font-style: italic;
+  color: #a1a1aa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roster-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 8px;
+}
+
+.tool-chip {
+  font-size: 10px;
+  background: #1e1e24;
+  color: #a1a1aa;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── MODAL AGENT ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.agent-modal {
+  background: #18181b;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  background: #141417;
+}
+
+.modal-header h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #71717a;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  color: #fff;
+}
+
+.modal-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.form-input {
+  background: #09090b;
+  border: 1px solid var(--border);
+  color: #fff;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: #10b981;
+}
+
+.form-row {
+  display: flex;
+  gap: 14px;
+}
+
+.flex-1 { flex: 1; }
+
+.textarea {
+  resize: vertical;
+}
+
+.form-hint {
+  font-size: 11px;
+  color: #71717a;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: #141417;
+}
