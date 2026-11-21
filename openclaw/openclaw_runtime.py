@@ -88,6 +88,48 @@ class OpenClawRuntime:
         )
         self.agents[mkos_ops.agent_id] = mkos_ops
 
+        # Level 2: May (Billing & Financial Recovery)
+        may = AgentDef(
+            agent_id="agt_cobranca_may",
+            client_id=default_client.client_id,
+            name="May - Cobrança & Finanças",
+            role="billing_finance",
+            system_prompt="Você é a May, responsável pela régua de relacionamento financeiro da agência. Conduza conversas empáticas para regularização de parcelas, emissão de boletos e Pix sem constrangimentos.",
+            model="gemini-2.0-flash",
+            tools_allowed=["query_due_invoices", "generate_pix_qr", "send_whatsapp_template"],
+            status="idle",
+            current_thought="Monitorando régua de vencimentos e cobrança preventiva..."
+        )
+        self.agents[may.agent_id] = may
+
+        # Level 2: Sara (Technical Support RAG)
+        sara = AgentDef(
+            agent_id="agt_suporte_sara",
+            client_id=default_client.client_id,
+            name="Sara - Suporte Técnico RAG",
+            role="technical_support",
+            system_prompt="Você é a Sara, assistente técnica de nível 2. Responda com base estrita na base de conhecimento oficial e manuais, escalando para humanos quando necessário.",
+            model="claude-3-7-sonnet",
+            tools_allowed=["query_knowledge_base", "inspect_system_logs", "escalate_to_human"],
+            status="idle",
+            current_thought="Pronta para responder dúvidas na base de conhecimento."
+        )
+        self.agents[sara.agent_id] = sara
+
+        # Level 2: Alex (Mobile Android Operator / Anti-Ban)
+        alex = AgentDef(
+            agent_id="agt_mobile_alex",
+            client_id=default_client.client_id,
+            name="Alex - Operador Mobile (Anti-Ban)",
+            role="android_operator",
+            system_prompt="Você opera o smartphone Android de forma humanizada, simulando rolagem com pausas de leitura e prevenindo bloqueios de algoritmos.",
+            model="gemini-2.0-flash",
+            tools_allowed=["android_swipe", "android_tap", "android_screenshot", "rotate_mobile_proxy"],
+            status="idle",
+            current_thought="Monitorando dispositivos Android e proxies 4G."
+        )
+        self.agents[alex.agent_id] = alex
+
     def register_client(self, client: ClientConfig):
         self.clients[client.client_id] = client
         for agent in client.agents:
@@ -141,6 +183,12 @@ class OpenClawRuntime:
                 self._execute_organic_warmup(op, agent)
             elif op.action == "no_show_reminder":
                 self._execute_no_show_reminder(op, agent)
+            elif op.action == "android_tap":
+                self._execute_android_tap(op, agent)
+            elif op.action == "android_home":
+                self._execute_android_home(op, agent)
+            elif op.action == "android_open_app":
+                self._execute_android_open_app(op, agent)
             else:
                 self._add_event(op, agent.agent_id, "thought", f"Executando playbook genérico: {op.action}")
                 time.sleep(2)
@@ -235,17 +283,63 @@ class OpenClawRuntime:
         agent.current_thought = "Executando rolagem orgânica anti-ban com pausas humanas..."
         self._add_event(op, agent.agent_id, "thought", "Disparando swipes com jitter gaussiano no dispositivo Android...")
         
-        import requests
-        for i in range(1, 4):
-            agent.current_thought = f"Rolagem {i}/3 com pausa de leitura..."
-            self._add_event(op, agent.agent_id, "tool_call", f"Swipe {i}/3 no celular...")
+        import random
+        cname = op.parameters.get("container_name", "mkos-phone-01")
+        swipes_count = op.parameters.get("swipes_count", 3)
+
+        for i in range(1, swipes_count + 1):
+            agent.current_thought = f"Rolagem {i}/{swipes_count} com pausa de leitura..."
+            self._add_event(op, agent.agent_id, "tool_call", f"Swipe {i}/{swipes_count} no celular Android...")
             try:
-                requests.post("http://127.0.0.1/api/instances/1/swipe/", json={
-                    "x1": 360, "y1": 900, "x2": 360, "y2": 300, "duration": 350
-                }, timeout=10)
-            except Exception:
-                pass
-            time.sleep(3)
+                x1 = 360 + random.randint(-15, 15)
+                y1 = 900 + random.randint(-20, 20)
+                x2 = 360 + random.randint(-15, 15)
+                y2 = 300 + random.randint(-20, 20)
+                duration = 320 + random.randint(-30, 40)
+                subprocess.run(
+                    ["docker", "exec", cname, "input", "swipe", str(x1), str(y1), str(x2), str(y2), str(duration)],
+                    check=False, timeout=5
+                )
+                self._add_event(op, agent.agent_id, "tool_result", f"Rolagem executada ({x1},{y1}) -> ({x2},{y2}) [{duration}ms].")
+            except Exception as e:
+                self._add_event(op, agent.agent_id, "tool_result", f"Aviso no swipe: {e}")
+            time.sleep(2.5)
+
+    def _execute_android_tap(self, op: OperationDispatch, agent: AgentDef):
+        agent.status = "executing_tool"
+        cname = op.parameters.get("container_name", "mkos-phone-01")
+        x = op.parameters.get("x", 540)
+        y = op.parameters.get("y", 960)
+        agent.current_thought = f"Tocando na tela em ({x}, {y})..."
+        self._add_event(op, agent.agent_id, "tool_call", f"Toque na tela em ({x}, {y})")
+        try:
+            subprocess.run(["docker", "exec", cname, "input", "tap", str(x), str(y)], check=False, timeout=5)
+            self._add_event(op, agent.agent_id, "tool_result", f"Toque confirmado em ({x}, {y}).")
+        except Exception as e:
+            self._add_event(op, agent.agent_id, "error", f"Falha no toque: {e}")
+
+    def _execute_android_home(self, op: OperationDispatch, agent: AgentDef):
+        agent.status = "executing_tool"
+        cname = op.parameters.get("container_name", "mkos-phone-01")
+        agent.current_thought = "Pressionando botão Home do Android..."
+        self._add_event(op, agent.agent_id, "tool_call", "Pressionar botão Home")
+        try:
+            subprocess.run(["docker", "exec", cname, "input", "keyevent", "3"], check=False, timeout=5)
+            self._add_event(op, agent.agent_id, "tool_result", "Retornou à tela inicial do Android.")
+        except Exception as e:
+            self._add_event(op, agent.agent_id, "error", f"Falha no comando home: {e}")
+
+    def _execute_android_open_app(self, op: OperationDispatch, agent: AgentDef):
+        agent.status = "executing_tool"
+        cname = op.parameters.get("container_name", "mkos-phone-01")
+        pkg = op.parameters.get("package", "com.instagram.android")
+        agent.current_thought = f"Abrindo aplicativo {pkg} no celular..."
+        self._add_event(op, agent.agent_id, "tool_call", f"Lançar aplicativo: {pkg}")
+        try:
+            subprocess.run(["docker", "exec", cname, "monkey", "-p", pkg, "-c", "android.intent.category.LAUNCHER", "1"], check=False, timeout=5)
+            self._add_event(op, agent.agent_id, "tool_result", f"App {pkg} aberto com sucesso.")
+        except Exception as e:
+            self._add_event(op, agent.agent_id, "error", f"Falha ao abrir app: {e}")
 
     def _execute_no_show_reminder(self, op: OperationDispatch, agent: AgentDef):
         agent.status = "thinking"
