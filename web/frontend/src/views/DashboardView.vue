@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useInstancesStore } from '../stores/instances'
 import InstanceCard from '../components/InstanceCard.vue'
 import CctvTile from '../components/CctvTile.vue'
+import HabblaudOffice from '../components/HabblaudOffice.vue'
 import CreateInstanceModal from '../components/CreateInstanceModal.vue'
 import ImageBuilder from '../components/ImageBuilder.vue'
 
@@ -18,6 +19,7 @@ let pollTimer = null
 
 watch(() => route.query.tab, (tab) => {
   if (tab === 'images') activeTab.value = 'images'
+  else if (tab === 'agents') activeTab.value = 'agents'
   else activeTab.value = 'instances'
 }, { immediate: true })
 
@@ -67,6 +69,9 @@ const filteredInstances = computed(() => {
         <div class="tab-bar">
           <button :class="['tab', { active: activeTab === 'instances' }]" @click="activeTab = 'instances'">
             📱 Dispositivos ({{ totalCount }})
+          </button>
+          <button :class="['tab', { active: activeTab === 'agents' }]" @click="activeTab = 'agents'">
+            🏢 Agentes & Habblaud
           </button>
           <button :class="['tab', { active: activeTab === 'images' }]" @click="activeTab = 'images'">
             💾 Imagens Base
@@ -159,6 +164,10 @@ const filteredInstances = computed(() => {
             :instance="inst"
           />
         </div>
+      </div>
+
+      <div v-else-if="activeTab === 'agents'" key="agents" class="tab-content">
+        <HabblaudOffice />
       </div>
 
       <div v-else key="images" class="tab-content">
