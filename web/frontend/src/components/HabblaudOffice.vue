@@ -142,7 +142,7 @@ const agentForm = ref({
 
 const presetTemplates = [
   {
-    icon: '📞',
+    icon: 'VENDAS',
     title: 'Atendimento & Vendas 24/7',
     desc: 'Atendimento humanizado, qualificação de leads, catálogo e links Pix.',
     role: 'support_and_sales',
@@ -152,7 +152,7 @@ const presetTemplates = [
     prompt: 'Você é a Clara, especialista em atendimento e vendas no WhatsApp. Seja acolhedora, recomende produtos e ajude no fechamento de pedidos com pagamento Pix.'
   },
   {
-    icon: '📅',
+    icon: 'OPS',
     title: 'Operações & No-Show',
     desc: 'Monitora agendamentos, envia lembretes interativos e previne faltas.',
     role: 'operations_mkos',
@@ -162,7 +162,7 @@ const presetTemplates = [
     prompt: 'Você é o especialista de operações MKOS. Monitore consultas e agendamentos nas próximas 24 horas, confirmando presença e reagendando faltas de forma proativa.'
   },
   {
-    icon: '💰',
+    icon: 'FIN',
     title: 'Cobrança & Régua Financeira',
     desc: 'Régua preventiva de vencimento, recuperação amigável e 2ª via de boleto/Pix.',
     role: 'billing_finance',
@@ -172,7 +172,7 @@ const presetTemplates = [
     prompt: 'Você é a May, responsável pela régua de relacionamento financeiro. Conduza conversas empáticas para regularização de parcelas, emissão de boletos e Pix sem constrangimentos.'
   },
   {
-    icon: '📚',
+    icon: 'RAG',
     title: 'Suporte Técnico & Base RAG',
     desc: 'Tira dúvidas em manuais técnicos, PDFs de seguradoras ou documentação de sistemas.',
     role: 'technical_support',
@@ -182,7 +182,7 @@ const presetTemplates = [
     prompt: 'Você é a Sara, assistente técnica de nível 2. Responda com base estrita na base de conhecimento oficial e manuais, escalando para humanos quando necessário.'
   },
   {
-    icon: '🎬',
+    icon: 'UGC',
     title: 'Conteúdo UGC & Vídeos Cinematográficos',
     desc: 'Roteiros persuasivos, renderização Remotion 9:16 e injeção na galeria.',
     role: 'content_creator',
@@ -192,7 +192,7 @@ const presetTemplates = [
     prompt: 'Você cria roteiros e vídeos curtos cinematográficos para Instagram Reels, TikTok e WhatsApp Status.'
   },
   {
-    icon: '🤖',
+    icon: 'MOB',
     title: 'Operador de Celular Android (Anti-Ban)',
     desc: 'Automação mecânica no app nativo: swipes orgânicos, visualização de stories e postagens.',
     role: 'android_operator',
@@ -320,13 +320,13 @@ function statusLabel(status) {
       <div class="topbar-left">
         <div class="subtab-pills">
           <button class="subtab-btn" :class="{ active: activeSubTab === 'habblaud' }" @click="activeSubTab = 'habblaud'">
-            🏢 Escritório Virtual (Habblaud)
+             Escritório Virtual (Habblaud)
           </button>
           <button class="subtab-btn" :class="{ active: activeSubTab === 'paperclip' }" @click="activeSubTab = 'paperclip'">
             📎 Hierarquia Paperclip
           </button>
           <button class="subtab-btn" :class="{ active: activeSubTab === 'builder' }" @click="activeSubTab = 'builder'">
-            🛠️ Equipe Operacional (Criar Agentes)
+             Equipe Operacional (Criar Agentes)
           </button>
           <button class="subtab-btn" :class="{ active: activeSubTab === 'timeline' }" @click="activeSubTab = 'timeline'">
             ⚡ OpenBot Runtime (Manus Trace)
@@ -334,11 +334,17 @@ function statusLabel(status) {
         </div>
 
         <div class="engine-pills">
-          <span class="engine-badge engine-badge--claw">🐾 OpenClaw Runtime</span>
-          <span class="engine-badge engine-badge--bot">🛡️ OpenBot Gateway</span>
+          <span class="engine-badge engine-badge--claw">
+            <span class="pulse-dot"></span>
+            OpenClaw Engine
+          </span>
+          <span class="engine-badge engine-badge--bot">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            OpenBot Gateway
+          </span>
           <div class="budget-pill">
-            <span class="budget-label">Orçamento:</span>
-            <span class="budget-val">US$ {{ currentClient.budget_current_usd?.toFixed(2) }} / {{ currentClient.budget_monthly_usd?.toFixed(2) }}</span>
+            <span class="budget-label">Limite Mensal:</span>
+            <span class="budget-val font-mono">US$ {{ currentClient.budget_current_usd?.toFixed(2) }} / {{ currentClient.budget_monthly_usd?.toFixed(2) }}</span>
             <span class="budget-dot" />
           </div>
         </div>
@@ -346,22 +352,22 @@ function statusLabel(status) {
 
       <div class="topbar-right">
         <button class="btn btn--small btn--primary" @click="openPairModal()">
-          📱 Parear OpenBot
+           Parear OpenBot
         </button>
         <button class="btn btn--small btn--accent-outline" @click="openCreateModal()">
           + Criar Agente
         </button>
         <button class="btn btn--small btn--accent-outline" :disabled="!!dispatchLoading" @click="dispatchAction('create_and_send_reel')">
           <span v-if="dispatchLoading === 'create_and_send_reel'" class="spinner" />
-          🎬 Criar Reel (Leo)
+           Criar Reel (Leo)
         </button>
         <button class="btn btn--small btn--accent-outline" :disabled="!!dispatchLoading" @click="dispatchAction('organic_warmup')">
           <span v-if="dispatchLoading === 'organic_warmup'" class="spinner" />
-          ☕ Aquecimento Anti-Ban
+           Aquecimento Anti-Ban
         </button>
         <button class="btn btn--small" :disabled="!!dispatchLoading" @click="dispatchAction('no_show_reminder')">
           <span v-if="dispatchLoading === 'no_show_reminder'" class="spinner" />
-          📅 Checar No-Show
+           Checar No-Show
         </button>
       </div>
     </header>
@@ -396,7 +402,7 @@ function statusLabel(status) {
         <!-- Station 2: Leo (Mídia & Vídeo UGC) -->
         <div class="workstation station-leo">
           <div class="thought-bubble" :class="{ 'thought-bubble--active': leoAgent.status !== 'idle' }">
-            <span class="bubble-title">🎬 {{ leoAgent.name }}</span>
+            <span class="bubble-title"> {{ leoAgent.name }}</span>
             <p class="bubble-text">{{ leoAgent.current_thought }}</p>
             <button
               v-if="leoAgent.status === 'waiting_approval' && activeOp"
@@ -410,7 +416,7 @@ function statusLabel(status) {
 
           <div class="desk-unit">
             <div class="avatar avatar--leo" :class="`avatar--${leoAgent.status}`">
-              <span class="avatar-face">🎬</span>
+              <span class="avatar-face"></span>
             </div>
             <div class="desk-furniture">
               <span class="computer-screen">🖥️</span>
@@ -435,7 +441,7 @@ function statusLabel(status) {
               <span class="avatar-face">👩‍💼</span>
             </div>
             <div class="desk-furniture">
-              <span class="computer-screen">📱</span>
+              <span class="computer-screen"></span>
             </div>
           </div>
 
@@ -454,7 +460,7 @@ function statusLabel(status) {
 
           <div class="desk-unit">
             <div class="avatar avatar--mkos" :class="`avatar--${mkosAgent.status}`">
-              <span class="avatar-face">🤖</span>
+              <span class="avatar-face"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg></span>
             </div>
             <div class="desk-furniture">
               <span class="computer-screen">📊</span>
@@ -491,7 +497,7 @@ function statusLabel(status) {
             <h4 class="node-title">{{ leoAgent.name }}</h4>
             <p class="node-desc">{{ leoAgent.system_prompt }}</p>
             <div class="node-tools">
-              <span v-for="t in leoAgent.tools_allowed" :key="t" class="tool-tag">🎬 {{ t }}</span>
+              <span v-for="t in leoAgent.tools_allowed" :key="t" class="tool-tag"> {{ t }}</span>
             </div>
             <div class="subagent-tag">↳ Dispara Subagentes Efêmeros (Remotion concurrency=1)</div>
           </div>
@@ -539,7 +545,7 @@ function statusLabel(status) {
         >
           <div class="event-meta">
             <span class="event-time">{{ ev.timestamp }}</span>
-            <span class="event-agent">🤖 {{ ev.agent_id }}</span>
+            <span class="event-agent">{{ ev.agent_id }}</span>
             <span class="event-type-badge">{{ ev.type }}</span>
           </div>
           <div class="event-content">{{ ev.content }}</div>
@@ -551,7 +557,7 @@ function statusLabel(status) {
     <div v-else-if="activeSubTab === 'builder'" class="builder-container">
       <div class="builder-header">
         <div>
-          <h3>🛠️ Studio de Agentes & Equipes Operacionais</h3>
+          <h3> Studio de Agentes & Equipes Operacionais</h3>
           <p class="builder-desc">Gerencie e crie equipes de funcionários digitais customizados por cliente e operação.</p>
         </div>
         <button class="btn btn--primary" @click="openCreateModal()">
@@ -561,7 +567,7 @@ function statusLabel(status) {
 
       <!-- Presets Operacionais -->
       <div class="presets-section">
-        <h4 class="section-title">✨ Criar a Partir de um Modelo Especialista</h4>
+        <h4 class="section-title"> Criar a Partir de um Modelo Especialista</h4>
         <div class="presets-grid">
           <div
             v-for="(p, pIdx) in presetTemplates"
@@ -576,7 +582,7 @@ function statusLabel(status) {
             <h5>{{ p.title }}</h5>
             <p>{{ p.desc }}</p>
             <div class="preset-footer">
-              <span class="preset-model-tag">🧠 {{ p.model }}</span>
+              <span class="preset-model-tag"> {{ p.model }}</span>
               <button class="btn btn--small btn--primary">Configurar</button>
             </div>
           </div>
@@ -586,14 +592,14 @@ function statusLabel(status) {
       <!-- Agentes Ativos na Operação -->
       <div class="roster-section">
         <div class="roster-head">
-          <h4 class="section-title">📋 Equipe em Operação ({{ agents.length }} Agentes Ativos)</h4>
-          <span class="client-scope-tag">🏢 Cliente: {{ currentClient.client_name }}</span>
+          <h4 class="section-title"> Equipe em Operação ({{ agents.length }} Agentes Ativos)</h4>
+          <span class="client-scope-tag"> Cliente: {{ currentClient.client_name }}</span>
         </div>
 
         <div class="roster-grid">
           <div v-for="agent in agents" :key="agent.agent_id" class="roster-card">
             <div class="roster-card-header">
-              <div class="roster-avatar">🤖</div>
+              <div class="roster-avatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg></div>
               <div class="roster-main-info">
                 <h5>{{ agent.name }}</h5>
                 <span class="roster-role-badge">{{ agent.role }}</span>
@@ -617,7 +623,7 @@ function statusLabel(status) {
                 <span class="meta-value thought-preview">{{ agent.current_thought }}</span>
               </div>
               <div class="roster-tools">
-                <span v-for="t in agent.tools_allowed" :key="t" class="tool-chip">🛠️ {{ t }}</span>
+                <span v-for="t in agent.tools_allowed" :key="t" class="tool-chip"> {{ t }}</span>
               </div>
             </div>
           </div>
@@ -629,7 +635,7 @@ function statusLabel(status) {
     <div v-if="showNewAgentModal" class="modal-overlay" @click.self="showNewAgentModal = false">
       <div class="agent-modal">
         <div class="modal-header">
-          <h4>🛠️ Novo Agente da Equipe Operacional</h4>
+          <h4> Novo Agente da Equipe Operacional</h4>
           <button class="close-btn" @click="showNewAgentModal = false">✕</button>
         </div>
 
@@ -659,12 +665,12 @@ function statusLabel(status) {
             <div class="form-group flex-1">
               <label>Papel Operacional (Role):</label>
               <select v-model="agentForm.role" class="form-input">
-                <option value="support_and_sales">📞 Atendimento & Vendas (WhatsApp)</option>
-                <option value="operations_mkos">📅 Operações & No-Show</option>
-                <option value="billing_finance">💰 Cobrança & Régua Financeira</option>
-                <option value="technical_support">📚 Suporte Técnico & Base RAG</option>
-                <option value="content_creator">🎬 Conteúdo UGC & Vídeos Cinematográficos</option>
-                <option value="android_operator">🤖 Operador de Celular Android (Anti-Ban)</option>
+                <option value="support_and_sales"> Atendimento & Vendas (WhatsApp)</option>
+                <option value="operations_mkos"> Operações & No-Show</option>
+                <option value="billing_finance"> Cobrança & Régua Financeira</option>
+                <option value="technical_support"> Suporte Técnico & Base RAG</option>
+                <option value="content_creator"> Conteúdo UGC & Vídeos Cinematográficos</option>
+                <option value="android_operator"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg> Operador de Celular Android (Anti-Ban)</option>
               </select>
             </div>
 
@@ -1187,6 +1193,100 @@ function statusLabel(status) {
   color: #c084fc;
   border: 1px solid rgba(168, 85, 247, 0.3);
 }
+
+/* ── Pulse dot for badge ── */
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #10b981;
+  display: inline-block;
+  box-shadow: 0 0 6px #10b981;
+}
+
+/* ── Mobile Optimization for Habblaud ── */
+@media (max-width: 768px) {
+  .habblaud-wrapper {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+  .habblaud-topbar {
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .topbar-left {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .subtab-pills {
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding: 3px;
+  }
+  .subtab-btn {
+    padding: 7px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .engine-pills {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .topbar-right {
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+  .topbar-right .btn {
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+  .office-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 6px;
+  }
+  .office-floor {
+    min-width: 620px;
+  }
+  .builder-container {
+    padding: 12px;
+    gap: 16px;
+  }
+  .presets-grid {
+    grid-template-columns: 1fr;
+  }
+  .roster-grid {
+    grid-template-columns: 1fr;
+  }
+  .agent-modal {
+    max-width: 95vw;
+    margin: 10px;
+  }
+  .form-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
 </style>
 
 

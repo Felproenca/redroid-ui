@@ -275,7 +275,7 @@ async function rotateProxy() {
         <span v-if="actionLoading === 'stop'" class="spinner" /> ⏹ Parar
       </button>
       <button v-if="instance.running" class="btn btn--small btn--accent-outline" @click="openFullscreen" title="Abrir Console AI Split-Screen">
-        ⚡ Viewer + AI
+        Abrir Viewer
       </button>
 
       <!-- Instant Screenshot -->

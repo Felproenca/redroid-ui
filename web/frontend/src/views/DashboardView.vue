@@ -68,13 +68,28 @@ const filteredInstances = computed(() => {
       <div class="header-left">
         <div class="tab-bar">
           <button :class="['tab', { active: activeTab === 'instances' }]" @click="activeTab = 'instances'">
-            📱 Dispositivos ({{ totalCount }})
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+            <span>Dispositivos ({{ totalCount }})</span>
           </button>
           <button :class="['tab', { active: activeTab === 'agents' }]" @click="activeTab = 'agents'">
-            🏢 Agentes & Habblaud
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span>Equipe de Agentes</span>
           </button>
           <button :class="['tab', { active: activeTab === 'images' }]" @click="activeTab = 'images'">
-            💾 Imagens Base
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            <span>Imagens Base</span>
           </button>
         </div>
 
@@ -100,7 +115,13 @@ const filteredInstances = computed(() => {
             title="Visualização em Cards Detalhados"
             @click="viewMode = 'cards'"
           >
-            🗂️ Cards
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Cards
           </button>
           <button
             class="toggle-btn"
@@ -108,12 +129,21 @@ const filteredInstances = computed(() => {
             title="Mosaico Multi-Dispositivo CCTV"
             @click="viewMode = 'cctv'"
           >
-            📺 Mosaico CCTV
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            Mosaico CCTV
           </button>
         </div>
 
         <button v-if="activeTab === 'instances'" class="btn btn--primary" @click="showCreate = true">
-          + Novo Android
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Novo Dispositivo
         </button>
       </div>
     </div>
@@ -309,4 +339,51 @@ const filteredInstances = computed(() => {
   padding: 64px 20px;
   color: var(--fg-muted);
 }
+
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 14px 12px;
+  }
+  .dash-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .header-left {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .tab-bar {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 3px;
+  }
+  .tab-bar .tab {
+    padding: 7px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .stats-bar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .header-right {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .filter-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .phones-row, .cctv-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
 </style>

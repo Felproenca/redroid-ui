@@ -506,14 +506,14 @@ onUnmounted(() => {
               <span v-if="isDumpingUi" class="spinner" /> 🔍 Inspecionar Nós XML
             </button>
             <label class="play-btn" :class="{ disabled: isInjectingVideo }">
-              <span v-if="isInjectingVideo" class="spinner" /> 🎬 Injetar Remotion
+              <span v-if="isInjectingVideo" class="spinner" /> Injetar Vídeo MP4
               <input ref="videoInput" type="file" accept="video/mp4" hidden :disabled="isInjectingVideo" @change="triggerInjectVideoFile" />
             </label>
             <button class="play-btn" :disabled="isRotatingProxy" @click="triggerRotateProxy">
               <span v-if="isRotatingProxy" class="spinner" /> 🔄 Rotacionar 4G
             </button>
             <button class="play-btn play-btn--accent" @click="runPlaybookWarmup">
-              ⚡ Warmup Feed
+              Aquecer Feed
             </button>
           </div>
         </div>
