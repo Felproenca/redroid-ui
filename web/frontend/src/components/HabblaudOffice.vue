@@ -101,6 +101,7 @@ const pairLoading = ref(false)
 const pairData = ref(null)
 const pairCountdown = ref(120)
 const pairCopiedKey = ref('')
+const currentQrMode = ref('url') // 'url' (câmera) ou 'ticket' (openbot app)
 let pairTimer = null
 
 function openOpenBotSite() {
@@ -109,13 +110,18 @@ function openOpenBotSite() {
 
 async function openPairModal() {
   showPairModal.value = true
-  await fetchPairQr()
+  await fetchPairQr(currentQrMode.value)
 }
 
-async function fetchPairQr() {
+async function switchQrMode(mode) {
+  currentQrMode.value = mode
+  await fetchPairQr(mode)
+}
+
+async function fetchPairQr(mode = currentQrMode.value) {
   pairLoading.value = true
   try {
-    const res = await api.get('/v1/openbot/pair')
+    const res = await api.get(`/v1/openbot/pair?qr_mode=${mode}`)
     pairData.value = res.data
     pairCountdown.value = 120
     if (pairTimer) clearInterval(pairTimer)
@@ -125,16 +131,17 @@ async function fetchPairQr() {
     }, 1000)
   } catch (e) {
     console.error('Erro ao buscar pareamento da API:', e)
-    // Fallback gracioso para visualização direta
+    const token = 'openbot_' + Math.random().toString(36).substring(2, 10)
     pairData.value = {
       status: 'ok',
+      qr_mode: mode,
+      connect_url: `http://${location.hostname || '169.58.27.192'}/api/v1/openbot/connect?token=${token}`,
       pair_payload: {
         v: 1,
         app: 'MKOS Agent Fleet',
         api: `http://${location.hostname || '169.58.27.192'}/api/v1`,
         ws: `ws://${location.hostname || '169.58.27.192'}/ws/operations/live`,
-        token: 'openbot_' + Math.random().toString(36).substring(2, 10),
-        paired_phone: 'mkos-mobile-client',
+        token: token,
         mcp_endpoint: `http://${location.hostname || '169.58.27.192'}/api/v1/openbot/mcp-config`
       }
     }
@@ -792,39 +799,86 @@ function statusLabel(status) {
           </div>
 
           <div class="modal-body pair-modal-body">
-            <!-- Step Guide -->
-            <div class="pair-guide">
+            <!-- Mode Selector Tabs -->
+            <div class="pair-mode-selector">
+              <button
+                class="mode-btn"
+                :class="{ active: currentQrMode === 'url' }"
+                @click="switchQrMode('url')"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                <span>Câmera do Celular (Recomendado)</span>
+              </button>
+              <button
+                class="mode-btn"
+                :class="{ active: currentQrMode === 'ticket' }"
+                @click="switchQrMode('ticket')"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                <span>App Oficial OpenBot (Ticket)</span>
+              </button>
+            </div>
+
+            <!-- Guide: Mode 1 (Camera) -->
+            <div v-if="currentQrMode === 'url'" class="pair-guide">
               <div class="pair-step">
                 <span class="step-num">1</span>
                 <div class="step-content">
-                  <strong>Abra o OpenBot no smartphone</strong>
-                  <p>Inicie o app no celular ou acesse <a href="https://openbot.run" target="_blank" class="link-openbot">openbot.run</a> pelo navegador do smartphone.</p>
+                  <strong>Abra a câmera do seu smartphone</strong>
+                  <p>Aponte a câmera normal do seu iPhone ou Android diretamente para o QR Code abaixo.</p>
                 </div>
               </div>
               <div class="pair-step">
                 <span class="step-num">2</span>
                 <div class="step-content">
-                  <strong>Escaneie o QR Code abaixo</strong>
-                  <p>Aponte a câmera do OpenBot para conectar instantaneamente ao runtime deste servidor.</p>
+                  <strong>Toque no link que surgir na tela</strong>
+                  <p>Aparecerá a notificação para abrir o endereço <em>169.58.27.192</em> no navegador do smartphone.</p>
                 </div>
               </div>
               <div class="pair-step">
                 <span class="step-num">3</span>
                 <div class="step-content">
-                  <strong>Dispositivo vinculado ao Gateway MCP</strong>
-                  <p>O aparelho receberá missões de automação, injeção de mídias e simulação mecânica anti-ban.</p>
+                  <strong>Controle dos agentes pronto no celular</strong>
+                  <p>O painel móvel abrirá instantaneamente sem precisar instalar aplicativos adicionais.</p>
                 </div>
               </div>
             </div>
 
-            <!-- QR Code Card -->
+            <!-- Guide: Mode 2 (OpenBot App) -->
+            <div v-else class="pair-guide">
+              <div class="pair-step">
+                <span class="step-num">1</span>
+                <div class="step-content">
+                  <strong>Abra o aplicativo OpenBot</strong>
+                  <p>Inicie o app instalado pelo <a href="https://openbot.run" target="_blank" class="link-openbot">openbot.run</a>.</p>
+                </div>
+              </div>
+              <div class="pair-step">
+                <span class="step-num">2</span>
+                <div class="step-content">
+                  <strong>Selecione 'Scan QR code' no aplicativo</strong>
+                  <p>Aponte a câmera interna do OpenBot para o ticket criptográfico abaixo.</p>
+                </div>
+              </div>
+              <div class="pair-step">
+                <span class="step-num">3</span>
+                <div class="step-content">
+                  <strong>Vinculado ao Gateway MCP</strong>
+                  <p>O aplicativo autenticará o handshake direto com o runtime.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- QR Code Card with High Contrast -->
             <div class="pair-qr-card">
               <div v-if="pairLoading" class="qr-placeholder">
                 <span class="spinner" style="width: 32px; height: 32px;" />
-                <span>Gerando chave criptográfica de pareamento...</span>
+                <span>Gerando QR Code de alto contraste...</span>
               </div>
               <div v-else-if="pairData?.qr_code_base64" class="qr-content">
-                <img :src="pairData.qr_code_base64" class="qr-img" alt="QR Code OpenBot" />
+                <div class="qr-optical-box">
+                  <img :src="pairData.qr_code_base64" class="qr-img" alt="QR Code OpenBot" />
+                </div>
                 <div class="qr-countdown">
                   <span class="dot-online" />
                   <span>Token válido por: <strong class="font-mono">{{ Math.floor(pairCountdown / 60) }}:{{ (pairCountdown % 60).toString().padStart(2, '0') }}</strong></span>
@@ -832,28 +886,31 @@ function statusLabel(status) {
               </div>
               <div v-else class="qr-placeholder">
                 <span>Falha ao renderizar QR Code.</span>
-                <button class="btn btn--small btn--primary" @click="fetchPairQr">Tentar novamente</button>
+                <button class="btn btn--small btn--primary" @click="fetchPairQr(currentQrMode)">Tentar novamente</button>
               </div>
             </div>
 
-            <!-- Manual Parameters -->
+            <!-- Direct URL & Manual Parameters -->
             <div class="pair-manual-info">
               <div class="info-group">
-                <label>Token de Pareamento da Sessão:</label>
+                <label>Link Direto de Conexão Móvel (ou abra pelo celular):</label>
                 <div class="copy-input-row">
-                  <input readonly :value="pairData?.pair_payload?.token || 'Gerando...'" class="form-input font-mono" />
-                  <button class="btn btn--small btn--accent" @click="copyText(pairData?.pair_payload?.token, 'token')">
-                    {{ pairCopiedKey === 'token' ? 'Copiado!' : 'Copiar Token' }}
+                  <input readonly :value="pairData?.connect_url || 'http://169.58.27.192/api/v1/openbot/connect'" class="form-input font-mono" />
+                  <button class="btn btn--small btn--accent" @click="copyText(pairData?.connect_url, 'url')">
+                    {{ pairCopiedKey === 'url' ? 'Copiado!' : 'Copiar Link' }}
                   </button>
+                  <a :href="pairData?.connect_url" target="_blank" class="btn btn--small btn--primary" style="text-decoration:none; display:inline-flex; align-items:center;">
+                    Abrir no Navegador
+                  </a>
                 </div>
               </div>
 
               <div class="info-group">
-                <label>Endpoint Servidor MCP (OpenBot Gateway):</label>
+                <label>Token de Sessão:</label>
                 <div class="copy-input-row">
-                  <input readonly :value="pairData?.pair_payload?.mcp_endpoint || 'http://169.58.27.192/api/v1/openbot/mcp-config'" class="form-input font-mono" />
-                  <button class="btn btn--small btn--accent" @click="copyText(pairData?.pair_payload?.mcp_endpoint || 'http://169.58.27.192/api/v1/openbot/mcp-config', 'mcp')">
-                    {{ pairCopiedKey === 'mcp' ? 'Copiado!' : 'Copiar URL MCP' }}
+                  <input readonly :value="pairData?.pair_payload?.token || 'Gerando...'" class="form-input font-mono" />
+                  <button class="btn btn--small btn--accent" @click="copyText(pairData?.pair_payload?.token, 'token')">
+                    {{ pairCopiedKey === 'token' ? 'Copiado!' : 'Copiar Token' }}
                   </button>
                 </div>
               </div>
@@ -1786,6 +1843,60 @@ function statusLabel(status) {
   }
 }
 
+
+/* ── MODE SELECTOR IN PAIR MODAL ── */
+.pair-mode-selector {
+  display: flex !important;
+  background: #09090b !important;
+  padding: 4px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  gap: 4px !important;
+}
+
+.mode-btn {
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #a1a1aa !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+}
+
+.mode-btn:hover {
+  color: #fff !important;
+}
+
+.mode-btn.active {
+  background: #27272a !important;
+  color: #10b981 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.qr-optical-box {
+  background: #ffffff !important;
+  padding: 12px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  display: inline-block !important;
+}
+
+.qr-img {
+  width: 180px !important;
+  height: 180px !important;
+  display: block !important;
+  margin: 0 auto !important;
+  image-rendering: pixelated !important;
+}
+
 </style>
 
 
@@ -1888,8 +1999,8 @@ function statusLabel(status) {
   display: flex !important;
   flex-direction: column !important;
   gap: 16px !important;
-  padding: 20px 24px !important;
-  max-height: 75vh !important;
+  padding: 16px 20px !important;
+  max-height: 78vh !important;
   overflow-y: auto !important;
 }
 
@@ -2059,4 +2170,58 @@ function statusLabel(status) {
     height: 170px !important;
   }
 }
+
+/* ── MODE SELECTOR IN PAIR MODAL ── */
+.pair-mode-selector {
+  display: flex !important;
+  background: #09090b !important;
+  padding: 4px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  gap: 4px !important;
+}
+
+.mode-btn {
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #a1a1aa !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+}
+
+.mode-btn:hover {
+  color: #fff !important;
+}
+
+.mode-btn.active {
+  background: #27272a !important;
+  color: #10b981 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.qr-optical-box {
+  background: #ffffff !important;
+  padding: 12px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  display: inline-block !important;
+}
+
+.qr-img {
+  width: 180px !important;
+  height: 180px !important;
+  display: block !important;
+  margin: 0 auto !important;
+  image-rendering: pixelated !important;
+}
+
 </style>
