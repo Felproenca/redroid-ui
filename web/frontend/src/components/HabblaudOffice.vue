@@ -1787,3 +1787,276 @@ function statusLabel(status) {
 }
 
 </style>
+
+
+<style>
+/* ── GLOBAL TELEPORTED MODAL STYLES (Mount to <body>) ── */
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.82) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 99999 !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+.agent-modal {
+  background: #18181b !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 16px !important;
+  width: 100% !important;
+  max-width: 600px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85) !important;
+  position: relative !important;
+  z-index: 100000 !important;
+  color: #f4f4f5 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+.modal-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 18px 24px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: #141417 !important;
+}
+
+.modal-header-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.modal-header-info h4, .modal-header h4 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #fff !important;
+  margin: 0 !important;
+}
+
+.modal-sub {
+  font-size: 11px !important;
+  color: #a1a1aa !important;
+  display: block !important;
+  margin-top: 2px !important;
+}
+
+.close-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #71717a !important;
+  font-size: 18px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 6px !important;
+  border-radius: 6px !important;
+  transition: all 0.2s !important;
+}
+
+.close-btn:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.modal-body {
+  padding: 20px 24px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  max-height: 75vh !important;
+  overflow-y: auto !important;
+}
+
+.pair-modal-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  padding: 20px 24px !important;
+  max-height: 75vh !important;
+  overflow-y: auto !important;
+}
+
+.pair-guide {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  background: #09090b !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px !important;
+  padding: 14px !important;
+}
+
+.pair-step {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+}
+
+.step-num {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  background: #27272a !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #10b981 !important;
+  flex-shrink: 0 !important;
+}
+
+.step-content strong {
+  font-size: 12px !important;
+  color: #f4f4f5 !important;
+  display: block !important;
+}
+
+.step-content p {
+  font-size: 11px !important;
+  color: #71717a !important;
+  margin-top: 2px !important;
+}
+
+.link-openbot {
+  color: #10b981 !important;
+  text-decoration: underline !important;
+}
+
+.pair-qr-card {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #09090b !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+}
+
+.qr-img {
+  width: 200px !important;
+  height: 200px !important;
+  background: #fff !important;
+  padding: 8px !important;
+  border-radius: 10px !important;
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+.qr-placeholder {
+  min-height: 200px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  color: #a1a1aa !important;
+  font-size: 13px !important;
+}
+
+.qr-countdown {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+  font-size: 12px !important;
+  color: #a1a1aa !important;
+}
+
+.dot-online {
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background: #10b981 !important;
+  box-shadow: 0 0 8px #10b981 !important;
+}
+
+.pair-manual-info {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+.info-group label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #a1a1aa !important;
+  margin-bottom: 4px !important;
+  display: block !important;
+}
+
+.copy-input-row {
+  display: flex !important;
+  gap: 8px !important;
+}
+
+.copy-input-row input {
+  flex: 1 !important;
+  background: #09090b !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #10b981 !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+
+.modal-footer, .pair-modal-footer {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  padding: 16px 24px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: #141417 !important;
+}
+
+.pair-modal-footer {
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 10px !important;
+  }
+  .agent-modal, .pair-modal {
+    max-width: 100% !important;
+    max-height: 95vh !important;
+    border-radius: 12px !important;
+  }
+  .modal-body, .pair-modal-body {
+    padding: 16px !important;
+    max-height: 70vh !important;
+  }
+  .pair-modal-footer {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .pair-modal-footer button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .qr-img {
+    width: 170px !important;
+    height: 170px !important;
+  }
+}
+</style>
