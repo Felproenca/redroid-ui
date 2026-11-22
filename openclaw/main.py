@@ -1,7 +1,12 @@
 import asyncio
 import json
+import io
+import base64
+import uuid
 import logging
+from datetime import datetime
 from typing import List
+import qrcode
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -103,6 +108,60 @@ def get_habblaud_state():
         "agents": [a.dict() for a in runtime.agents.values()],
         "clients": [c.dict() for c in runtime.clients.values()],
         "active_operations": [op.dict() for op in runtime.operations.values() if op.status not in ["completed", "failed"]]
+    }
+
+# ── OPENBOT MOBILE PAIRING & MCP INTEGRATION ──
+
+@app.get("/api/v1/openbot/pair")
+def generate_openbot_pairing(host_ip: str = "169.58.27.192"):
+    """Generates QR Code and credentials for OpenBot mobile companion (openbot.run)."""
+    token = f"openbot_{uuid.uuid4().hex[:12]}"
+    pair_payload = {
+        "v": 1,
+        "app": "MKOS Agent Fleet",
+        "api": f"http://{host_ip}/api/v1",
+        "ws": f"ws://{host_ip}/ws/operations/live",
+        "token": token,
+        "paired_phone": "mkos-phone-01",
+        "created_at": datetime.now().isoformat()
+    }
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=8,
+        border=3,
+    )
+    qr.add_data(json.dumps(pair_payload))
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#10b981", back_color="#09090b")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    return {
+        "status": "ok",
+        "pair_payload": pair_payload,
+        "qr_code_base64": f"data:image/png;base64,{qr_b64}",
+        "expires_in_seconds": 120,
+        "instructions": "Abra o aplicativo OpenBot no seu celular, vá em 'Scan QR code' e aponte para esta tela."
+    }
+
+@app.get("/api/v1/openbot/mcp-config")
+def get_mcp_config():
+    """Returns MCP server configuration for OpenBot Desktop / Claude / Cursor."""
+    return {
+        "mcpServers": {
+            "mkos-openbot": {
+                "command": "/opt/mkos-agent/.venv/bin/python3",
+                "args": ["/opt/openclaw/mcp_server.py"],
+                "env": {
+                    "PYTHONUNBUFFERED": "1",
+                    "OPENCLAW_HOST": "127.0.0.1",
+                    "OPENCLAW_PORT": "8090"
+                }
+            }
+        }
     }
 
 # ── WEBSOCKET LIVE STREAM ──

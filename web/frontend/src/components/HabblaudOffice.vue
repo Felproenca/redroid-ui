@@ -97,6 +97,36 @@ async function dispatchAction(actionName) {
 }
 
 
+
+const showPairModal = ref(false)
+const pairLoading = ref(false)
+const pairData = ref(null)
+const pairCountdown = ref(120)
+let pairTimer = null
+
+async function openPairModal() {
+  showPairModal.value = true
+  await fetchPairQr()
+}
+
+async function fetchPairQr() {
+  pairLoading.value = true
+  try {
+    const res = await api.get('/v1/openbot/pair')
+    pairData.value = res.data
+    pairCountdown.value = 120
+    if (pairTimer) clearInterval(pairTimer)
+    pairTimer = setInterval(() => {
+      if (pairCountdown.value > 0) pairCountdown.value--
+      else clearInterval(pairTimer)
+    }, 1000)
+  } catch (e) {
+    alert('Erro ao gerar pareamento OpenBot: ' + e.message)
+  } finally {
+    pairLoading.value = false
+  }
+}
+
 const showNewAgentModal = ref(false)
 const newAgentSaving = ref(false)
 const agentForm = ref({
@@ -315,7 +345,10 @@ function statusLabel(status) {
       </div>
 
       <div class="topbar-right">
-        <button class="btn btn--small btn--primary" @click="openCreateModal()">
+        <button class="btn btn--small btn--primary" @click="openPairModal()">
+          📱 Parear OpenBot
+        </button>
+        <button class="btn btn--small btn--accent-outline" @click="openCreateModal()">
           + Criar Agente
         </button>
         <button class="btn btn--small btn--accent-outline" :disabled="!!dispatchLoading" @click="dispatchAction('create_and_send_reel')">
