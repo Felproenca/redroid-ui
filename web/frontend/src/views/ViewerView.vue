@@ -424,10 +424,10 @@ onUnmounted(() => {
 
       <div class="topbar-actions">
         <!-- Quick Hardware Navigation Keys -->
-        <button class="nav-key" title="Voltar (Back)" @click="sendKey(4)">◀ Voltar</button>
-        <button class="nav-key" title="Início (Home)" @click="sendKey(3)">● Início</button>
-        <button class="nav-key" title="Recentes (Apps)" @click="sendKey(187)">■ Recentes</button>
-        <button class="nav-key" title="Ligar/Desligar Tela" @click="sendKey(26)">⏻ Tela</button>
+        <button class="nav-key" title="Voltar (Back)" @click="sendKey(4)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><polyline points="15 18 9 12 15 6"></polyline></svg>Voltar</button>
+        <button class="nav-key" title="Início (Home)" @click="sendKey(3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><circle cx="12" cy="12" r="10"></circle></svg>Início</button>
+        <button class="nav-key" title="Recentes (Apps)" @click="sendKey(187)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>Recentes</button>
+        <button class="nav-key" title="Ligar/Desligar Tela" @click="sendKey(26)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>Tela</button>
       </div>
     </header>
 
@@ -500,17 +500,17 @@ onUnmounted(() => {
           <!-- Fast Automation Playbook Bar -->
           <div class="playbook-toolbar">
             <button class="play-btn" :disabled="isCapturing" @click="triggerVlmSnapshot">
-              <span v-if="isCapturing" class="spinner" /> 📸 Snapshot VLM
+              <span v-if="isCapturing" class="spinner" /> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>Snapshot VLM
             </button>
             <button class="play-btn" :disabled="isDumpingUi" @click="triggerUiDump">
-              <span v-if="isDumpingUi" class="spinner" /> 🔍 Inspecionar Nós XML
+              <span v-if="isDumpingUi" class="spinner" /> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Inspecionar Nós XML
             </button>
             <label class="play-btn" :class="{ disabled: isInjectingVideo }">
               <span v-if="isInjectingVideo" class="spinner" /> Injetar Vídeo MP4
               <input ref="videoInput" type="file" accept="video/mp4" hidden :disabled="isInjectingVideo" @change="triggerInjectVideoFile" />
             </label>
             <button class="play-btn" :disabled="isRotatingProxy" @click="triggerRotateProxy">
-              <span v-if="isRotatingProxy" class="spinner" /> 🔄 Rotacionar 4G
+              <span v-if="isRotatingProxy" class="spinner" /> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>Rotacionar 4G
             </button>
             <button class="play-btn play-btn--accent" @click="runPlaybookWarmup">
               Aquecer Feed
@@ -522,7 +522,7 @@ onUnmounted(() => {
         <div class="agent-toolbox">
           <!-- Screenshot Preview -->
           <div class="toolbox-card">
-            <span class="card-title">👁️ Visão do Modelo (Último Frame Capturado)</span>
+            <span class="card-title">Visão do Modelo (Último Frame Capturado)</span>
             <div class="vlm-preview-box">
               <img v-if="lastScreenshot" :src="lastScreenshot" class="vlm-img" />
               <div v-else class="vlm-placeholder">
@@ -534,7 +534,7 @@ onUnmounted(() => {
 
           <!-- Direct Coordinate & Text Dispatcher -->
           <div class="toolbox-card">
-            <span class="card-title">🎯 Disparo Manual de Coordenadas</span>
+            <span class="card-title">Disparo Manual de Coordenadas</span>
             <div class="coord-row">
               <input v-model="manualTapX" type="number" class="input coord-input" placeholder="X (ex: 360)" />
               <input v-model="manualTapY" type="number" class="input coord-input" placeholder="Y (ex: 640)" />

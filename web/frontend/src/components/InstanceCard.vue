@@ -248,7 +248,7 @@ async function rotateProxy() {
 
       <div class="phone-badges-row">
         <span v-if="instance.client_name || instance.client_id" class="badge badge--client" :title="`Cliente: ${instance.client_name || instance.client_id}`">
-          🏢 {{ instance.client_name || instance.client_id }}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:4px;"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="2"></line><line x1="8" y1="6" x2="8.01" y2="6"></line><line x1="16" y1="6" x2="16.01" y2="6"></line><line x1="16" y1="10" x2="16.01" y2="10"></line><line x1="16" y1="14" x2="16.01" y2="14"></line><line x1="16" y1="18" x2="16.01" y2="18"></line></svg>{{ instance.client_name || instance.client_id }}
         </span>
         <span :class="['badge', connectionBadgeClass]" :title="`Conexão ADB: ${instance.connection_status || 'unknown'}`">
           {{ connectionLabel }}
@@ -269,10 +269,10 @@ async function rotateProxy() {
     <!-- Quick Action Toolbar -->
     <div class="phone-actions">
       <button v-if="!instance.running" class="btn btn--small btn--primary" :disabled="!!actionLoading" @click="doAction('start')">
-        <span v-if="actionLoading === 'start'" class="spinner" /> ▶ Ligar
+        <span v-if="actionLoading === 'start'" class="spinner" /> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Ligar
       </button>
       <button v-if="instance.running" class="btn btn--small" :disabled="!!actionLoading" @click="doAction('stop')">
-        <span v-if="actionLoading === 'stop'" class="spinner" /> ⏹ Parar
+        <span v-if="actionLoading === 'stop'" class="spinner" /> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>Parar
       </button>
       <button v-if="instance.running" class="btn btn--small btn--accent-outline" @click="openFullscreen" title="Abrir Console AI Split-Screen">
         Abrir Viewer
@@ -280,18 +280,18 @@ async function rotateProxy() {
 
       <!-- Instant Screenshot -->
       <button v-if="instance.running" class="btn btn--small" :disabled="!!actionLoading" @click="captureScreenshot" title="Capturar tela instantânea">
-        <span v-if="actionLoading === 'screenshot'" class="spinner" /> 📸
+        <span v-if="actionLoading === 'screenshot'" class="spinner" /> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
       </button>
 
       <!-- Remotion Video Injector -->
       <label v-if="instance.running" class="btn btn--small apk-label" :class="{ disabled: !!actionLoading }" title="Injetar vídeo Remotion na Galeria">
-        <span v-if="actionLoading === 'video'" class="spinner" /> 🎬 Galeria
+        <span v-if="actionLoading === 'video'" class="spinner" /> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>Galeria
         <input ref="videoInput" type="file" accept="video/mp4" hidden :disabled="!!actionLoading" @change="handleInjectVideo" />
       </label>
 
       <!-- 4G IP Rotator -->
       <button v-if="instance.proxy_rotate_url" class="btn btn--small" :disabled="!!actionLoading" @click="rotateProxy" title="Rotacionar IP Móvel 4G/5G">
-        <span v-if="actionLoading === 'rotate'" class="spinner" /> 🔄 IP
+        <span v-if="actionLoading === 'rotate'" class="spinner" /> <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>IP
       </button>
 
       <!-- Install APK -->
@@ -301,20 +301,20 @@ async function rotateProxy() {
       </label>
 
       <button class="btn btn--small" :disabled="!!actionLoading" @click="showVpnModal = true" title="Configurar VPN / Tor">
-        🔒 VPN
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle; margin-right:3px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>VPN
       </button>
       <button class="btn btn--small" :disabled="!!actionLoading" @click="showToolsModal = true" title="Configurações Avançadas e Shell">
-        ⚙️
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
       </button>
       <button class="btn btn--small btn--danger" :disabled="!!actionLoading" @click="doAction('delete')" title="Excluir Instância">
-        <span v-if="actionLoading === 'delete'" class="spinner" /> 🗑️
+        <span v-if="actionLoading === 'delete'" class="spinner" /> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
       </button>
     </div>
 
     <!-- Screenshot Modal Preview -->
     <div v-if="showScreenshotModal" class="overlay" @click.self="showScreenshotModal = false">
       <div class="modal" style="max-width: 380px; text-align: center;">
-        <h2>📸 Captura de Tela (VLM Ready)</h2>
+        <h2><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Captura de Tela (VLM Ready)</h2>
         <img :src="screenshotData" style="width: 100%; border-radius: 12px; margin-bottom: 14px; border: 1px solid var(--border);" />
         <div class="form-actions" style="justify-content: center;">
           <a :href="screenshotData" download="screenshot.png" class="btn btn--primary">Baixar PNG</a>

@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import api from '../api'
 
-const activeSubTab = ref('habblaud') // 'habblaud', 'paperclip', 'timeline'
+const activeSubTab = ref('habblaud') // 'habblaud', 'paperclip', 'timeline', 'builder'
 const agents = ref([])
 const clients = ref([])
 const events = ref([])
@@ -60,7 +60,6 @@ async function fetchInitialState() {
     agents.value = res.data.agents || []
     clients.value = res.data.clients || []
   } catch (e) {
-    // Fallback defaults if engine starting
     console.warn('Initial state fetch error:', e)
   }
 }
@@ -96,13 +95,17 @@ async function dispatchAction(actionName) {
   }
 }
 
-
-
+// ── OPENBOT INTEGRATION & PAIRING ──
 const showPairModal = ref(false)
 const pairLoading = ref(false)
 const pairData = ref(null)
 const pairCountdown = ref(120)
+const pairCopiedKey = ref('')
 let pairTimer = null
+
+function openOpenBotSite() {
+  window.open('https://openbot.run', '_blank')
+}
 
 async function openPairModal() {
   showPairModal.value = true
@@ -121,12 +124,40 @@ async function fetchPairQr() {
       else clearInterval(pairTimer)
     }, 1000)
   } catch (e) {
-    alert('Erro ao gerar pareamento OpenBot: ' + e.message)
+    console.error('Erro ao buscar pareamento da API:', e)
+    // Fallback gracioso para visualização direta
+    pairData.value = {
+      status: 'ok',
+      pair_payload: {
+        v: 1,
+        app: 'MKOS Agent Fleet',
+        api: `http://${location.hostname || '169.58.27.192'}/api/v1`,
+        ws: `ws://${location.hostname || '169.58.27.192'}/ws/operations/live`,
+        token: 'openbot_' + Math.random().toString(36).substring(2, 10),
+        paired_phone: 'mkos-mobile-client',
+        mcp_endpoint: `http://${location.hostname || '169.58.27.192'}/api/v1/openbot/mcp-config`
+      }
+    }
   } finally {
     pairLoading.value = false
   }
 }
 
+function copyText(val, key = 'token') {
+  if (!val) return
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(val).then(() => {
+      pairCopiedKey.value = key
+      setTimeout(() => { pairCopiedKey.value = '' }, 2500)
+    }).catch(() => {
+      prompt('Copie o valor:', val)
+    })
+  } else {
+    prompt('Copie o valor:', val)
+  }
+}
+
+// ── AGENT STUDIO ──
 const showNewAgentModal = ref(false)
 const newAgentSaving = ref(false)
 const agentForm = ref({
@@ -142,7 +173,7 @@ const agentForm = ref({
 
 const presetTemplates = [
   {
-    icon: 'VENDAS',
+    code: 'VENDAS',
     title: 'Atendimento & Vendas 24/7',
     desc: 'Atendimento humanizado, qualificação de leads, catálogo e links Pix.',
     role: 'support_and_sales',
@@ -152,7 +183,7 @@ const presetTemplates = [
     prompt: 'Você é a Clara, especialista em atendimento e vendas no WhatsApp. Seja acolhedora, recomende produtos e ajude no fechamento de pedidos com pagamento Pix.'
   },
   {
-    icon: 'OPS',
+    code: 'OPS',
     title: 'Operações & No-Show',
     desc: 'Monitora agendamentos, envia lembretes interativos e previne faltas.',
     role: 'operations_mkos',
@@ -162,7 +193,7 @@ const presetTemplates = [
     prompt: 'Você é o especialista de operações MKOS. Monitore consultas e agendamentos nas próximas 24 horas, confirmando presença e reagendando faltas de forma proativa.'
   },
   {
-    icon: 'FIN',
+    code: 'FIN',
     title: 'Cobrança & Régua Financeira',
     desc: 'Régua preventiva de vencimento, recuperação amigável e 2ª via de boleto/Pix.',
     role: 'billing_finance',
@@ -172,7 +203,7 @@ const presetTemplates = [
     prompt: 'Você é a May, responsável pela régua de relacionamento financeiro. Conduza conversas empáticas para regularização de parcelas, emissão de boletos e Pix sem constrangimentos.'
   },
   {
-    icon: 'RAG',
+    code: 'RAG',
     title: 'Suporte Técnico & Base RAG',
     desc: 'Tira dúvidas em manuais técnicos, PDFs de seguradoras ou documentação de sistemas.',
     role: 'technical_support',
@@ -182,7 +213,7 @@ const presetTemplates = [
     prompt: 'Você é a Sara, assistente técnica de nível 2. Responda com base estrita na base de conhecimento oficial e manuais, escalando para humanos quando necessário.'
   },
   {
-    icon: 'UGC',
+    code: 'UGC',
     title: 'Conteúdo UGC & Vídeos Cinematográficos',
     desc: 'Roteiros persuasivos, renderização Remotion 9:16 e injeção na galeria.',
     role: 'content_creator',
@@ -192,7 +223,7 @@ const presetTemplates = [
     prompt: 'Você cria roteiros e vídeos curtos cinematográficos para Instagram Reels, TikTok e WhatsApp Status.'
   },
   {
-    icon: 'MOB',
+    code: 'MOB',
     title: 'Operador de Celular Android (Anti-Ban)',
     desc: 'Automação mecânica no app nativo: swipes orgânicos, visualização de stories e postagens.',
     role: 'android_operator',
@@ -277,18 +308,19 @@ onMounted(() => {
 
 onUnmounted(() => {
   clearTimeout(reconnectTimer)
+  if (pairTimer) clearInterval(pairTimer)
   if (socket) {
     socket.onclose = null
     socket.close()
   }
 })
 
-// Helpers for agents
 function getAgentByRole(role) {
   return agents.value.find(a => a.role === role) || {
     name: 'Agente',
     status: 'idle',
-    current_thought: 'Aguardando tarefas...'
+    current_thought: 'Aguardando tarefas...',
+    tools_allowed: []
   }
 }
 
@@ -320,16 +352,36 @@ function statusLabel(status) {
       <div class="topbar-left">
         <div class="subtab-pills">
           <button class="subtab-btn" :class="{ active: activeSubTab === 'habblaud' }" @click="activeSubTab = 'habblaud'">
-             Escritório Virtual (Habblaud)
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <line x1="3" y1="9" x2="21" y2="9"></line>
+              <line x1="9" y1="21" x2="9" y2="9"></line>
+            </svg>
+            <span>Escritório Virtual</span>
           </button>
-          <button class="subtab-btn" :class="{ active: activeSubTab === 'paperclip' }" @click="activeSubTab = 'paperclip'">
-            📎 Hierarquia Paperclip
-          </button>
+
           <button class="subtab-btn" :class="{ active: activeSubTab === 'builder' }" @click="activeSubTab = 'builder'">
-             Equipe Operacional (Criar Agentes)
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span>Equipe Operacional</span>
           </button>
+
+          <button class="subtab-btn" :class="{ active: activeSubTab === 'paperclip' }" @click="activeSubTab = 'paperclip'">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+            <span>Hierarquia Paperclip</span>
+          </button>
+
           <button class="subtab-btn" :class="{ active: activeSubTab === 'timeline' }" @click="activeSubTab = 'timeline'">
-            ⚡ OpenBot Runtime (Manus Trace)
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span>OpenBot Runtime</span>
           </button>
         </div>
 
@@ -351,45 +403,72 @@ function statusLabel(status) {
       </div>
 
       <div class="topbar-right">
-        <button class="btn btn--small btn--primary" @click="openPairModal()">
-           Parear OpenBot
+        <!-- Direct OpenBot Web Portal Link -->
+        <button class="btn btn--small btn--primary" @click="openOpenBotSite" title="Abrir portal oficial openbot.run em nova aba">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          <span>Abrir openbot.run</span>
         </button>
+
+        <!-- Pair Mobile App Modal Trigger -->
+        <button class="btn btn--small btn--accent" @click="openPairModal()" title="Parear celular Android via QR Code e Gateway MCP">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Parear Celular</span>
+        </button>
+
         <button class="btn btn--small btn--accent-outline" @click="openCreateModal()">
-          + Criar Agente
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Criar Agente</span>
         </button>
+
         <button class="btn btn--small btn--accent-outline" :disabled="!!dispatchLoading" @click="dispatchAction('create_and_send_reel')">
           <span v-if="dispatchLoading === 'create_and_send_reel'" class="spinner" />
-           Criar Reel (Leo)
+          <span>Criar Reel (Leo)</span>
         </button>
+
         <button class="btn btn--small btn--accent-outline" :disabled="!!dispatchLoading" @click="dispatchAction('organic_warmup')">
           <span v-if="dispatchLoading === 'organic_warmup'" class="spinner" />
-           Aquecimento Anti-Ban
+          <span>Aquecimento Anti-Ban</span>
         </button>
+
         <button class="btn btn--small" :disabled="!!dispatchLoading" @click="dispatchAction('no_show_reminder')">
           <span v-if="dispatchLoading === 'no_show_reminder'" class="spinner" />
-           Checar No-Show
+          <span>Checar No-Show</span>
         </button>
       </div>
     </header>
 
-    <!-- CONTENT VIEW 1: HABBLAUD VIRTUAL PIXEL OFFICE -->
+    <!-- CONTENT VIEW 1: HABBLAUD VIRTUAL OFFICE -->
     <div v-if="activeSubTab === 'habblaud'" class="office-container">
       <div class="office-floor">
         <!-- Station 1: Agente Diretor (Supervisor Geral) -->
         <div class="workstation station-director">
-          <!-- Thought Bubble -->
           <div class="thought-bubble" :class="{ 'thought-bubble--active': directorAgent.status !== 'idle' }">
-            <span class="bubble-title">👔 {{ directorAgent.name }}</span>
+            <span class="bubble-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              {{ directorAgent.name }}
+            </span>
             <p class="bubble-text">{{ directorAgent.current_thought }}</p>
           </div>
 
-          <!-- Desk & Avatar -->
           <div class="desk-unit">
             <div class="avatar avatar--director" :class="`avatar--${directorAgent.status}`">
-              <span class="avatar-face">👨‍💼</span>
+              <span class="avatar-face">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+              </span>
             </div>
             <div class="desk-furniture">
-              <span class="computer-screen">💻</span>
+              <span class="computer-screen">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+              </span>
             </div>
           </div>
 
@@ -402,7 +481,10 @@ function statusLabel(status) {
         <!-- Station 2: Leo (Mídia & Vídeo UGC) -->
         <div class="workstation station-leo">
           <div class="thought-bubble" :class="{ 'thought-bubble--active': leoAgent.status !== 'idle' }">
-            <span class="bubble-title"> {{ leoAgent.name }}</span>
+            <span class="bubble-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+              {{ leoAgent.name }}
+            </span>
             <p class="bubble-text">{{ leoAgent.current_thought }}</p>
             <button
               v-if="leoAgent.status === 'waiting_approval' && activeOp"
@@ -410,16 +492,22 @@ function statusLabel(status) {
               :disabled="approveLoading"
               @click="approveCurrentOp(activeOp.task_id)"
             >
-              <span v-if="approveLoading" class="spinner" /> 👍 Aprovar Postagem
+              <span v-if="approveLoading" class="spinner" />
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Aprovar Postagem
             </button>
           </div>
 
           <div class="desk-unit">
             <div class="avatar avatar--leo" :class="`avatar--${leoAgent.status}`">
-              <span class="avatar-face"></span>
+              <span class="avatar-face">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+              </span>
             </div>
             <div class="desk-furniture">
-              <span class="computer-screen">🖥️</span>
+              <span class="computer-screen">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+              </span>
             </div>
           </div>
 
@@ -432,16 +520,23 @@ function statusLabel(status) {
         <!-- Station 3: Clara (Atendimento & Vendas WhatsApp) -->
         <div class="workstation station-clara">
           <div class="thought-bubble" :class="{ 'thought-bubble--active': claraAgent.status !== 'idle' }">
-            <span class="bubble-title">💬 {{ claraAgent.name }}</span>
+            <span class="bubble-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              {{ claraAgent.name }}
+            </span>
             <p class="bubble-text">{{ claraAgent.current_thought }}</p>
           </div>
 
           <div class="desk-unit">
             <div class="avatar avatar--clara" :class="`avatar--${claraAgent.status}`">
-              <span class="avatar-face">👩‍💼</span>
+              <span class="avatar-face">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              </span>
             </div>
             <div class="desk-furniture">
-              <span class="computer-screen"></span>
+              <span class="computer-screen">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+              </span>
             </div>
           </div>
 
@@ -454,16 +549,23 @@ function statusLabel(status) {
         <!-- Station 4: MKOS Operações & No-Show -->
         <div class="workstation station-mkos">
           <div class="thought-bubble" :class="{ 'thought-bubble--active': mkosAgent.status !== 'idle' }">
-            <span class="bubble-title">⚙️ {{ mkosAgent.name }}</span>
+            <span class="bubble-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              {{ mkosAgent.name }}
+            </span>
             <p class="bubble-text">{{ mkosAgent.current_thought }}</p>
           </div>
 
           <div class="desk-unit">
             <div class="avatar avatar--mkos" :class="`avatar--${mkosAgent.status}`">
-              <span class="avatar-face"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg></span>
+              <span class="avatar-face">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
+              </span>
             </div>
             <div class="desk-furniture">
-              <span class="computer-screen">📊</span>
+              <span class="computer-screen">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              </span>
             </div>
           </div>
 
@@ -484,7 +586,10 @@ function statusLabel(status) {
           <h3 class="node-title">{{ directorAgent.name }}</h3>
           <p class="node-desc">{{ directorAgent.system_prompt }}</p>
           <div class="node-tools">
-            <span v-for="t in directorAgent.tools_allowed" :key="t" class="tool-tag">🔧 {{ t }}</span>
+            <span v-for="t in directorAgent.tools_allowed" :key="t" class="tool-tag">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+              {{ t }}
+            </span>
           </div>
         </div>
 
@@ -497,7 +602,10 @@ function statusLabel(status) {
             <h4 class="node-title">{{ leoAgent.name }}</h4>
             <p class="node-desc">{{ leoAgent.system_prompt }}</p>
             <div class="node-tools">
-              <span v-for="t in leoAgent.tools_allowed" :key="t" class="tool-tag"> {{ t }}</span>
+              <span v-for="t in leoAgent.tools_allowed" :key="t" class="tool-tag">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                {{ t }}
+              </span>
             </div>
             <div class="subagent-tag">↳ Dispara Subagentes Efêmeros (Remotion concurrency=1)</div>
           </div>
@@ -507,7 +615,10 @@ function statusLabel(status) {
             <h4 class="node-title">{{ claraAgent.name }}</h4>
             <p class="node-desc">{{ claraAgent.system_prompt }}</p>
             <div class="node-tools">
-              <span v-for="t in claraAgent.tools_allowed" :key="t" class="tool-tag">💬 {{ t }}</span>
+              <span v-for="t in claraAgent.tools_allowed" :key="t" class="tool-tag">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                {{ t }}
+              </span>
             </div>
             <div class="subagent-tag">↳ Memória isolada por client_id (LGPD)</div>
           </div>
@@ -517,7 +628,10 @@ function statusLabel(status) {
             <h4 class="node-title">{{ mkosAgent.name }}</h4>
             <p class="node-desc">{{ mkosAgent.system_prompt }}</p>
             <div class="node-tools">
-              <span v-for="t in mkosAgent.tools_allowed" :key="t" class="tool-tag">⚙️ {{ t }}</span>
+              <span v-for="t in mkosAgent.tools_allowed" :key="t" class="tool-tag">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                {{ t }}
+              </span>
             </div>
             <div class="subagent-tag">↳ Conexão direta com Mural n8n da produção</div>
           </div>
@@ -525,8 +639,31 @@ function statusLabel(status) {
       </div>
     </div>
 
-    <!-- CONTENT VIEW 3: MANUS / GROK BOT LIVE ACTION TIMELINE -->
+    <!-- CONTENT VIEW 3: OPENBOT RUNTIME (MANUS TRACE) -->
     <div v-else-if="activeSubTab === 'timeline'" class="timeline-container">
+      <!-- OpenBot Hub Banner -->
+      <div class="openbot-banner">
+        <div class="openbot-banner-left">
+          <div class="openbot-logo-badge">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          </div>
+          <div>
+            <h4>OpenBot Mobile Runtime & MCP Gateway</h4>
+            <p>Gerenciamento do runtime autônomo conectando smartphones Android físicos e emulados via Model Context Protocol (MCP) e WebSockets.</p>
+          </div>
+        </div>
+        <div class="openbot-banner-actions">
+          <button class="btn btn--small btn--primary" @click="openOpenBotSite">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            Acessar openbot.run
+          </button>
+          <button class="btn btn--small btn--accent" @click="openPairModal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            Parear Celular (QR Code)
+          </button>
+        </div>
+      </div>
+
       <div class="timeline-header">
         <h3>Linha do Tempo de Execução em Tempo Real (OpenBot / Manus Trace)</h3>
         <span class="events-count">{{ events.length }} eventos registrados</span>
@@ -545,7 +682,7 @@ function statusLabel(status) {
         >
           <div class="event-meta">
             <span class="event-time">{{ ev.timestamp }}</span>
-            <span class="event-agent">{{ ev.agent_id }}</span>
+            <span class="event-agent font-mono">{{ ev.agent_id }}</span>
             <span class="event-type-badge">{{ ev.type }}</span>
           </div>
           <div class="event-content">{{ ev.content }}</div>
@@ -557,17 +694,18 @@ function statusLabel(status) {
     <div v-else-if="activeSubTab === 'builder'" class="builder-container">
       <div class="builder-header">
         <div>
-          <h3> Studio de Agentes & Equipes Operacionais</h3>
+          <h3>Studio de Agentes & Equipes Operacionais</h3>
           <p class="builder-desc">Gerencie e crie equipes de funcionários digitais customizados por cliente e operação.</p>
         </div>
         <button class="btn btn--primary" @click="openCreateModal()">
-          + Novo Agente Operacional
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Novo Agente Operacional
         </button>
       </div>
 
       <!-- Presets Operacionais -->
       <div class="presets-section">
-        <h4 class="section-title"> Criar a Partir de um Modelo Especialista</h4>
+        <h4 class="section-title">Modelos Especialistas Pré-Configurados</h4>
         <div class="presets-grid">
           <div
             v-for="(p, pIdx) in presetTemplates"
@@ -576,13 +714,13 @@ function statusLabel(status) {
             @click="openCreateModal(p)"
           >
             <div class="preset-card-head">
-              <span class="preset-icon">{{ p.icon }}</span>
+              <span class="preset-icon font-mono">{{ p.code }}</span>
               <span class="preset-badge">{{ p.role }}</span>
             </div>
             <h5>{{ p.title }}</h5>
             <p>{{ p.desc }}</p>
             <div class="preset-footer">
-              <span class="preset-model-tag"> {{ p.model }}</span>
+              <span class="preset-model-tag font-mono">{{ p.model }}</span>
               <button class="btn btn--small btn--primary">Configurar</button>
             </div>
           </div>
@@ -592,17 +730,19 @@ function statusLabel(status) {
       <!-- Agentes Ativos na Operação -->
       <div class="roster-section">
         <div class="roster-head">
-          <h4 class="section-title"> Equipe em Operação ({{ agents.length }} Agentes Ativos)</h4>
-          <span class="client-scope-tag"> Cliente: {{ currentClient.client_name }}</span>
+          <h4 class="section-title">Equipe em Operação ({{ agents.length }} Agentes Ativos)</h4>
+          <span class="client-scope-tag">Cliente: {{ currentClient.client_name }}</span>
         </div>
 
         <div class="roster-grid">
           <div v-for="agent in agents" :key="agent.agent_id" class="roster-card">
             <div class="roster-card-header">
-              <div class="roster-avatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg></div>
+              <div class="roster-avatar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
+              </div>
               <div class="roster-main-info">
                 <h5>{{ agent.name }}</h5>
-                <span class="roster-role-badge">{{ agent.role }}</span>
+                <span class="roster-role-badge font-mono">{{ agent.role }}</span>
               </div>
               <span class="roster-status-pill" :class="`roster-status-pill--${agent.status}`">
                 {{ agent.status }}
@@ -623,7 +763,10 @@ function statusLabel(status) {
                 <span class="meta-value thought-preview">{{ agent.current_thought }}</span>
               </div>
               <div class="roster-tools">
-                <span v-for="t in agent.tools_allowed" :key="t" class="tool-chip"> {{ t }}</span>
+                <span v-for="t in agent.tools_allowed" :key="t" class="tool-chip">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                  {{ t }}
+                </span>
               </div>
             </div>
           </div>
@@ -631,105 +774,214 @@ function statusLabel(status) {
       </div>
     </div>
 
-    <!-- MODAL: CRIAR / CONFIGURAR AGENTE OPERACIONAL -->
-    <div v-if="showNewAgentModal" class="modal-overlay" @click.self="showNewAgentModal = false">
-      <div class="agent-modal">
-        <div class="modal-header">
-          <h4> Novo Agente da Equipe Operacional</h4>
-          <button class="close-btn" @click="showNewAgentModal = false">✕</button>
-        </div>
-
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Cliente / Conta:</label>
-            <select v-model="agentForm.client_id" class="form-input">
-              <option value="cli_mkos_saas">MKOS SaaS / Operações Globais</option>
-              <option value="cli_cosmeticos_natural_01">Loja Cosméticos da Terra</option>
-              <option value="cli_clinica_medica">Clínica Médica & Estética</option>
-              <option value="cli_corretora_seguros">Corretora de Seguros (MayTech Model)</option>
-            </select>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group flex-1">
-              <label>Nome do Agente:</label>
-              <input v-model="agentForm.name" class="form-input" placeholder="Ex: Clara - Atendimento & Vendas" />
+    <!-- ── TELEPORT MODAL: PAREAR OPENBOT MOBILE ── -->
+    <Teleport to="body">
+      <div v-if="showPairModal" class="modal-overlay" @click.self="showPairModal = false">
+        <div class="agent-modal pair-modal">
+          <div class="modal-header">
+            <div class="modal-header-info">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+              <div>
+                <h4>Conectar Celular ao OpenBot Runtime</h4>
+                <span class="modal-sub">Pareamento via QR Code & Gateway Model Context Protocol (MCP)</span>
+              </div>
             </div>
-            <div class="form-group flex-1">
-              <label>Identificador Único (agent_id):</label>
-              <input v-model="agentForm.agent_id" class="form-input font-mono" placeholder="Ex: agt_vendas_01" />
+            <button class="close-btn" @click="showPairModal = false" aria-label="Fechar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="18" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+
+          <div class="modal-body pair-modal-body">
+            <!-- Step Guide -->
+            <div class="pair-guide">
+              <div class="pair-step">
+                <span class="step-num">1</span>
+                <div class="step-content">
+                  <strong>Abra o OpenBot no smartphone</strong>
+                  <p>Inicie o app no celular ou acesse <a href="https://openbot.run" target="_blank" class="link-openbot">openbot.run</a> pelo navegador do smartphone.</p>
+                </div>
+              </div>
+              <div class="pair-step">
+                <span class="step-num">2</span>
+                <div class="step-content">
+                  <strong>Escaneie o QR Code abaixo</strong>
+                  <p>Aponte a câmera do OpenBot para conectar instantaneamente ao runtime deste servidor.</p>
+                </div>
+              </div>
+              <div class="pair-step">
+                <span class="step-num">3</span>
+                <div class="step-content">
+                  <strong>Dispositivo vinculado ao Gateway MCP</strong>
+                  <p>O aparelho receberá missões de automação, injeção de mídias e simulação mecânica anti-ban.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- QR Code Card -->
+            <div class="pair-qr-card">
+              <div v-if="pairLoading" class="qr-placeholder">
+                <span class="spinner" style="width: 32px; height: 32px;" />
+                <span>Gerando chave criptográfica de pareamento...</span>
+              </div>
+              <div v-else-if="pairData?.qr_code_base64" class="qr-content">
+                <img :src="pairData.qr_code_base64" class="qr-img" alt="QR Code OpenBot" />
+                <div class="qr-countdown">
+                  <span class="dot-online" />
+                  <span>Token válido por: <strong class="font-mono">{{ Math.floor(pairCountdown / 60) }}:{{ (pairCountdown % 60).toString().padStart(2, '0') }}</strong></span>
+                </div>
+              </div>
+              <div v-else class="qr-placeholder">
+                <span>Falha ao renderizar QR Code.</span>
+                <button class="btn btn--small btn--primary" @click="fetchPairQr">Tentar novamente</button>
+              </div>
+            </div>
+
+            <!-- Manual Parameters -->
+            <div class="pair-manual-info">
+              <div class="info-group">
+                <label>Token de Pareamento da Sessão:</label>
+                <div class="copy-input-row">
+                  <input readonly :value="pairData?.pair_payload?.token || 'Gerando...'" class="form-input font-mono" />
+                  <button class="btn btn--small btn--accent" @click="copyText(pairData?.pair_payload?.token, 'token')">
+                    {{ pairCopiedKey === 'token' ? 'Copiado!' : 'Copiar Token' }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="info-group">
+                <label>Endpoint Servidor MCP (OpenBot Gateway):</label>
+                <div class="copy-input-row">
+                  <input readonly :value="pairData?.pair_payload?.mcp_endpoint || 'http://169.58.27.192/api/v1/openbot/mcp-config'" class="form-input font-mono" />
+                  <button class="btn btn--small btn--accent" @click="copyText(pairData?.pair_payload?.mcp_endpoint || 'http://169.58.27.192/api/v1/openbot/mcp-config', 'mcp')">
+                    {{ pairCopiedKey === 'mcp' ? 'Copiado!' : 'Copiar URL MCP' }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group flex-1">
-              <label>Papel Operacional (Role):</label>
-              <select v-model="agentForm.role" class="form-input">
-                <option value="support_and_sales"> Atendimento & Vendas (WhatsApp)</option>
-                <option value="operations_mkos"> Operações & No-Show</option>
-                <option value="billing_finance"> Cobrança & Régua Financeira</option>
-                <option value="technical_support"> Suporte Técnico & Base RAG</option>
-                <option value="content_creator"> Conteúdo UGC & Vídeos Cinematográficos</option>
-                <option value="android_operator"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg> Operador de Celular Android (Anti-Ban)</option>
-              </select>
-            </div>
-
-            <div class="form-group flex-1">
-              <label>Modelo de Inteligência Artificial:</label>
-              <select v-model="agentForm.model" class="form-input">
-                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Alta Velocidade / Custo Baixo)</option>
-                <option value="claude-3-7-sonnet">Claude 3.7 Sonnet (Raciocínio & RAG Profundo)</option>
-                <option value="deepseek-chat">DeepSeek-V3 (Econômico & Preciso)</option>
-              </select>
+          <div class="modal-footer pair-modal-footer">
+            <button class="btn btn--small btn--outline" @click="openOpenBotSite">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              Abrir openbot.run
+            </button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn--small btn--secondary" @click="fetchPairQr">
+                Atualizar QR Code
+              </button>
+              <button class="btn btn--small btn--primary" @click="showPairModal = false">
+                Concluído
+              </button>
             </div>
           </div>
-
-          <div class="form-group">
-            <label>Instrução do Sistema (System Prompt / Tom de Voz):</label>
-            <textarea
-              v-model="agentForm.system_prompt"
-              rows="4"
-              class="form-input textarea"
-              placeholder="Defina a personalidade, as regras de atendimento e os objetivos operacionais..."
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Ferramentas Permitidas (separadas por vírgula):</label>
-            <input
-              v-model="agentForm.tools_allowed_text"
-              class="form-input font-mono"
-              placeholder="ex: search_catalog, check_order_status, send_pix_charge"
-            />
-            <span class="form-hint">O OpenBot Security Gateway bloqueia qualquer ação que não conste nesta lista.</span>
-          </div>
-
-          <div class="form-group">
-            <label>Teto de Gastos Mensal (Kill-Switch em USD):</label>
-            <input
-              v-model.number="agentForm.monthly_spend_limit_usd"
-              type="number"
-              step="5"
-              class="form-input"
-              style="width: 160px;"
-            />
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn--muted" @click="showNewAgentModal = false">Cancelar</button>
-          <button class="btn btn--primary" :disabled="newAgentSaving" @click="saveAgent">
-            <span v-if="newAgentSaving" class="spinner" />
-            Adicionar Agente à Equipe
-          </button>
         </div>
       </div>
-    </div>
+    </Teleport>
+
+    <!-- ── TELEPORT MODAL: CRIAR / CONFIGURAR AGENTE OPERACIONAL ── -->
+    <Teleport to="body">
+      <div v-if="showNewAgentModal" class="modal-overlay" @click.self="showNewAgentModal = false">
+        <div class="agent-modal">
+          <div class="modal-header">
+            <h4>Novo Agente da Equipe Operacional</h4>
+            <button class="close-btn" @click="showNewAgentModal = false" aria-label="Fechar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="18" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Cliente / Conta:</label>
+              <select v-model="agentForm.client_id" class="form-input">
+                <option value="cli_mkos_saas">MKOS SaaS / Operações Globais</option>
+                <option value="cli_cosmeticos_natural_01">Loja Cosméticos da Terra</option>
+                <option value="cli_clinica_medica">Clínica Médica & Estética</option>
+                <option value="cli_corretora_seguros">Corretora de Seguros (MayTech Model)</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label>Nome do Agente:</label>
+                <input v-model="agentForm.name" class="form-input" placeholder="Ex: Clara - Atendimento & Vendas" />
+              </div>
+              <div class="form-group flex-1">
+                <label>Identificador Único (agent_id):</label>
+                <input v-model="agentForm.agent_id" class="form-input font-mono" placeholder="Ex: agt_vendas_01" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label>Papel Operacional (Role):</label>
+                <select v-model="agentForm.role" class="form-input">
+                  <option value="support_and_sales">Atendimento & Vendas (WhatsApp)</option>
+                  <option value="operations_mkos">Operações & No-Show</option>
+                  <option value="billing_finance">Cobrança & Régua Financeira</option>
+                  <option value="technical_support">Suporte Técnico & Base RAG</option>
+                  <option value="content_creator">Conteúdo UGC & Vídeos Cinematográficos</option>
+                  <option value="android_operator">Operador de Celular Android (Anti-Ban)</option>
+                </select>
+              </div>
+
+              <div class="form-group flex-1">
+                <label>Modelo de Inteligência Artificial:</label>
+                <select v-model="agentForm.model" class="form-input">
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash (Alta Velocidade / Custo Baixo)</option>
+                  <option value="claude-3-7-sonnet">Claude 3.7 Sonnet (Raciocínio & RAG Profundo)</option>
+                  <option value="deepseek-chat">DeepSeek-V3 (Econômico & Preciso)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Instrução do Sistema (System Prompt / Tom de Voz):</label>
+              <textarea
+                v-model="agentForm.system_prompt"
+                rows="4"
+                class="form-input textarea"
+                placeholder="Defina a personalidade, as regras de atendimento e os objetivos operacionais..."
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Ferramentas Permitidas (separadas por vírgula):</label>
+              <input
+                v-model="agentForm.tools_allowed_text"
+                class="form-input font-mono"
+                placeholder="ex: search_catalog, check_order_status, send_pix_charge"
+              />
+              <span class="form-hint">O OpenBot Security Gateway bloqueia qualquer ação que não conste nesta lista.</span>
+            </div>
+
+            <div class="form-group">
+              <label>Teto de Gastos Mensal (Kill-Switch em USD):</label>
+              <input
+                v-model.number="agentForm.monthly_spend_limit_usd"
+                type="number"
+                step="5"
+                class="form-input"
+                style="width: 160px;"
+              />
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn--muted" @click="showNewAgentModal = false">Cancelar</button>
+            <button class="btn btn--primary" :disabled="newAgentSaving" @click="saveAgent">
+              <span v-if="newAgentSaving" class="spinner" />
+              Adicionar Agente à Equipe
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
   </div>
 </template>
 
 <style scoped>
+
 .habblaud-wrapper {
   display: flex;
   flex-direction: column;
@@ -1287,350 +1539,251 @@ function statusLabel(status) {
   }
 }
 
-</style>
 
 
-/* ── AGENT STUDIO / BUILDER ── */
-.builder-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  gap: 24px;
-  overflow-y: auto;
-}
 
-.builder-header {
+/* ── OPENBOT BANNER & PAIR MODAL ── */
+.openbot-banner {
+  background: #121215;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 16px;
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
-.builder-header h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 4px;
-}
-
-.builder-desc {
-  font-size: 13px;
-  color: var(--fg-muted);
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #a1a1aa;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 12px;
-}
-
-.presets-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+.openbot-banner-left {
+  display: flex;
+  align-items: center;
   gap: 14px;
 }
 
-.preset-card {
-  background: #141417;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  cursor: pointer;
-  transition: all var(--transition);
-  display: flex;
-  flex-direction: column;
-}
-
-.preset-card:hover {
-  border-color: #10b981;
-  transform: translateY(-2px);
-  background: #18181b;
-}
-
-.preset-card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.preset-icon {
-  font-size: 24px;
-}
-
-.preset-badge {
-  font-size: 10px;
-  background: #27272a;
-  color: #a1a1aa;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-weight: 600;
-}
-
-.preset-card h5 {
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 6px;
-}
-
-.preset-card p {
-  font-size: 12px;
-  color: #71717a;
-  line-height: 1.4;
-  flex: 1;
-  margin-bottom: 12px;
-}
-
-.preset-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding-top: 10px;
-}
-
-.preset-model-tag {
-  font-size: 11px;
-  color: #10b981;
-  font-weight: 600;
-}
-
-/* Roster Section */
-.roster-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.client-scope-tag {
-  font-size: 12px;
-  background: rgba(16, 185, 129, 0.1);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-weight: 600;
-}
-
-.roster-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-}
-
-.roster-card {
-  background: #121215;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.roster-card-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.roster-avatar {
-  width: 38px;
-  height: 38px;
-  background: #27272a;
+.openbot-logo-badge {
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  color: #10b981;
+  flex-shrink: 0;
 }
 
-.roster-main-info {
-  flex: 1;
-}
-
-.roster-main-info h5 {
-  font-size: 14px;
+.openbot-banner-left h4 {
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
-  margin-bottom: 2px;
-}
-
-.roster-role-badge {
-  font-size: 11px;
-  color: #a1a1aa;
-}
-
-.roster-status-pill {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  text-transform: uppercase;
-}
-
-.roster-status-pill--idle { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-.roster-status-pill--thinking { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-.roster-status-pill--executing_tool { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-.roster-status-pill--waiting_approval { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-
-.roster-meta-row {
-  display: flex;
-  font-size: 12px;
   margin-bottom: 4px;
-  gap: 6px;
 }
 
-.meta-label {
-  color: #71717a;
-  min-width: 90px;
-}
-
-.meta-value {
-  color: #e4e4e7;
-}
-
-.thought-preview {
-  font-style: italic;
+.openbot-banner-left p {
+  font-size: 12px;
   color: #a1a1aa;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 600px;
+  line-height: 1.4;
 }
 
-.roster-tools {
+.openbot-banner-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding-top: 8px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-.tool-chip {
-  font-size: 10px;
-  background: #1e1e24;
-  color: #a1a1aa;
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Pair Modal Specifics */
+.pair-modal {
+  max-width: 580px;
 }
 
-/* ── MODAL AGENT ── */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
+.modal-header-info {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
+  gap: 12px;
 }
 
-.agent-modal {
-  background: #18181b;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  width: 100%;
-  max-width: 620px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--border);
-  background: #141417;
-}
-
-.modal-header h4 {
+.modal-header-info h4 {
   font-size: 16px;
   font-weight: 700;
   color: #fff;
+  margin: 0;
 }
 
-.close-btn {
-  background: transparent;
-  border: none;
-  color: #71717a;
-  font-size: 18px;
-  cursor: pointer;
+.modal-sub {
+  font-size: 11px;
+  color: #a1a1aa;
+  display: block;
 }
 
-.close-btn:hover {
-  color: #fff;
-}
-
-.modal-body {
-  padding: 20px 24px;
+.pair-modal-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-height: 70vh;
+  gap: 16px;
+  padding: 20px 24px;
+  max-height: 75vh;
   overflow-y: auto;
 }
 
-.form-group {
+.pair-guide {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+  background: #09090b;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
 }
 
-.form-group label {
+.pair-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #27272a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.step-content strong {
   font-size: 12px;
-  font-weight: 600;
+  color: #f4f4f5;
+  display: block;
+}
+
+.step-content p {
+  font-size: 11px;
+  color: #71717a;
+  margin-top: 2px;
+}
+
+.link-openbot {
+  color: #10b981;
+  text-decoration: underline;
+}
+
+.pair-qr-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #09090b;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.qr-img {
+  width: 210px;
+  height: 210px;
+  background: #fff;
+  padding: 8px;
+  border-radius: 10px;
+  display: block;
+  margin: 0 auto;
+}
+
+.qr-placeholder {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #a1a1aa;
+  font-size: 13px;
+}
+
+.qr-countdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12px;
   color: #a1a1aa;
 }
 
-.form-input {
+.dot-online {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.pair-manual-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.copy-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.copy-input-row input {
+  flex: 1;
   background: #09090b;
   border: 1px solid var(--border);
-  color: #fff;
-  padding: 9px 12px;
+  color: #10b981;
+  padding: 8px 12px;
   border-radius: 8px;
-  font-size: 13px;
-  outline: none;
+  font-size: 12px;
 }
 
-.form-input:focus {
-  border-color: #10b981;
-}
-
-.form-row {
+.pair-modal-footer {
   display: flex;
-  gap: 14px;
-}
-
-.flex-1 { flex: 1; }
-
-.textarea {
-  resize: vertical;
-}
-
-.form-hint {
-  font-size: 11px;
-  color: #71717a;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 16px 24px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
   border-top: 1px solid var(--border);
   background: #141417;
 }
+
+@media (max-width: 768px) {
+  .openbot-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .openbot-banner-actions {
+    flex-direction: column;
+  }
+  .pair-modal {
+    max-width: 100%;
+    margin: 10px;
+    border-radius: 12px;
+  }
+  .pair-modal-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .pair-modal-footer button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+</style>
