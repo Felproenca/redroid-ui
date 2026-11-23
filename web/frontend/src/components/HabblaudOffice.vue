@@ -101,8 +101,17 @@ const pairLoading = ref(false)
 const pairData = ref(null)
 const pairCountdown = ref(120)
 const pairCopiedKey = ref('')
-const currentQrMode = ref('url') // 'url' (câmera) ou 'ticket' (openbot app)
+const currentQrMode = ref('ticket') // 'ticket' (app oficial openbot) ou 'url' (câmera)
 let pairTimer = null
+
+// OpenBot Login State
+const obEmail = ref('')
+const obCode = ref('')
+const obChallenge = ref('')
+const obStep = ref('email') // 'email' | 'code' | 'ready'
+const obActionLoading = ref(false)
+const obError = ref('')
+const obSuccessMsg = ref('')
 
 function openOpenBotSite() {
   window.open('https://openbot.run', '_blank')
@@ -110,20 +119,30 @@ function openOpenBotSite() {
 
 async function openPairModal() {
   showPairModal.value = true
+  obError.value = ''
+  obSuccessMsg.value = ''
   await fetchPairQr(currentQrMode.value)
 }
 
 async function switchQrMode(mode) {
   currentQrMode.value = mode
+  obError.value = ''
+  obSuccessMsg.value = ''
   await fetchPairQr(mode)
 }
 
 async function fetchPairQr(mode = currentQrMode.value) {
   pairLoading.value = true
+  obError.value = ''
   try {
     const res = await api.get(`/v1/openbot/pair?qr_mode=${mode}`)
     pairData.value = res.data
-    pairCountdown.value = 120
+    if (res.data?.is_signed_in) {
+      obStep.value = 'ready'
+    } else if (res.data?.status === 'needs_login') {
+      obStep.value = 'email'
+    }
+    pairCountdown.value = res.data?.expires_in_seconds || 120
     if (pairTimer) clearInterval(pairTimer)
     pairTimer = setInterval(() => {
       if (pairCountdown.value > 0) pairCountdown.value--
@@ -147,6 +166,68 @@ async function fetchPairQr(mode = currentQrMode.value) {
     }
   } finally {
     pairLoading.value = false
+  }
+}
+
+async function startOpenBotLogin() {
+  if (!obEmail.value || !obEmail.value.includes('@')) {
+    obError.value = 'Informe um endereço de e-mail válido.'
+    return
+  }
+  obActionLoading.value = true
+  obError.value = ''
+  obSuccessMsg.value = ''
+  try {
+    const res = await api.post('/v1/openbot/login/start', { email: obEmail.value.trim(), name: 'OpenBot VPS' })
+    if (res.data?.challenge) {
+      obChallenge.value = res.data.challenge
+      obStep.value = 'code'
+      obSuccessMsg.value = `Código de verificação enviado para ${obEmail.value.trim()}. Verifique sua caixa de entrada.`
+    }
+  } catch (e) {
+    obError.value = e.response?.data?.detail || 'Erro ao enviar código de verificação. Verifique o e-mail digitado.'
+  } finally {
+    obActionLoading.value = false
+  }
+}
+
+async function verifyOpenBotCode() {
+  if (!obCode.value || obCode.value.trim().length < 3) {
+    obError.value = 'Digite o código recebido por e-mail.'
+    return
+  }
+  obActionLoading.value = true
+  obError.value = ''
+  obSuccessMsg.value = ''
+  try {
+    await api.post('/v1/openbot/login/verify', {
+      challenge: obChallenge.value,
+      code: obCode.value.trim(),
+      name: 'OpenBot VPS'
+    })
+    obStep.value = 'ready'
+    obSuccessMsg.value = 'Conta OpenBot vinculada com sucesso ao servidor!'
+    await fetchPairQr('ticket')
+  } catch (e) {
+    obError.value = e.response?.data?.detail || 'Código incorreto ou expirado. Tente novamente.'
+  } finally {
+    obActionLoading.value = false
+  }
+}
+
+async function logoutOpenBot() {
+  obActionLoading.value = true
+  obError.value = ''
+  try {
+    await api.post('/v1/openbot/logout')
+    obStep.value = 'email'
+    obCode.value = ''
+    obChallenge.value = ''
+    await fetchPairQr('ticket')
+  } catch (e) {
+    console.error('Erro ao desconectar:', e)
+  } finally {
+    obActionLoading.value = false
   }
 }
 
@@ -846,31 +927,111 @@ function statusLabel(status) {
 
             <!-- Guide: Mode 2 (OpenBot App) -->
             <div v-else class="pair-guide">
-              <div class="pair-step">
-                <span class="step-num">1</span>
-                <div class="step-content">
-                  <strong>Abra o aplicativo OpenBot</strong>
-                  <p>Inicie o app instalado pelo <a href="https://openbot.run" target="_blank" class="link-openbot">openbot.run</a>.</p>
+              <!-- When OpenBot is already signed in on this server -->
+              <div v-if="pairData?.is_signed_in" class="openbot-signed-box">
+                <div class="openbot-account-badge">
+                  <span class="dot-online" />
+                  <span>Servidor vinculado à conta OpenBot: <strong>{{ pairData.account_email }}</strong></span>
+                  <button class="btn btn--small btn--outline" style="margin-left:auto; padding:3px 8px; font-size:11px;" @click="logoutOpenBot" :disabled="obActionLoading">
+                    Trocar Conta
+                  </button>
+                </div>
+                <div class="pair-step" style="margin-top: 10px;">
+                  <span class="step-num">1</span>
+                  <div class="step-content">
+                    <strong>Abra o aplicativo OpenBot no celular</strong>
+                    <p>Inicie o app oficial obtido em <a href="https://openbot.run" target="_blank" class="link-openbot">openbot.run</a>.</p>
+                  </div>
+                </div>
+                <div class="pair-step">
+                  <span class="step-num">2</span>
+                  <div class="step-content">
+                    <strong>Selecione 'Scan QR code' no aplicativo</strong>
+                    <p>Aponte a câmera do aplicativo para o código oficial de pareamento abaixo.</p>
+                  </div>
+                </div>
+                <div class="pair-step">
+                  <span class="step-num">3</span>
+                  <div class="step-content">
+                    <strong>Conexão Criptografada Estabelecida</strong>
+                    <p>O servidor passa a responder aos agentes diretamente pelo seu smartphone.</p>
+                  </div>
                 </div>
               </div>
-              <div class="pair-step">
-                <span class="step-num">2</span>
-                <div class="step-content">
-                  <strong>Selecione 'Scan QR code' no aplicativo</strong>
-                  <p>Aponte a câmera interna do OpenBot para o ticket criptográfico abaixo.</p>
+
+              <!-- When OpenBot needs account login on this server -->
+              <div v-else class="openbot-login-box">
+                <div class="login-notice">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  <div>
+                    <strong>Vincular Servidor ao OpenBot (openbot.run)</strong>
+                    <p>O aplicativo OpenBot requer que o servidor esteja associado à sua conta OpenBot para emparelhamento seguro.</p>
+                  </div>
                 </div>
-              </div>
-              <div class="pair-step">
-                <span class="step-num">3</span>
-                <div class="step-content">
-                  <strong>Vinculado ao Gateway MCP</strong>
-                  <p>O aplicativo autenticará o handshake direto com o runtime.</p>
+
+                <!-- Step A: Email Form -->
+                <div v-if="obStep === 'email'" class="login-form-group">
+                  <label>E-mail da sua conta OpenBot:</label>
+                  <div class="copy-input-row">
+                    <input
+                      v-model="obEmail"
+                      type="email"
+                      placeholder="seu-email@exemplo.com"
+                      class="form-input"
+                      :disabled="obActionLoading"
+                      @keyup.enter="startOpenBotLogin"
+                    />
+                    <button class="btn btn--small btn--primary" @click="startOpenBotLogin" :disabled="obActionLoading || !obEmail">
+                      {{ obActionLoading ? 'Enviando...' : 'Enviar Código' }}
+                    </button>
+                  </div>
+                  <span class="form-hint" style="margin-top: 6px; display: block;">
+                    Não tem conta? <a href="https://openbot.run" target="_blank" class="link-openbot">Cadastre-se gratuitamente em openbot.run</a>
+                  </span>
+                </div>
+
+                <!-- Step B: Verification Code Form -->
+                <div v-else-if="obStep === 'code'" class="login-form-group">
+                  <label>Código de confirmação de 6 dígitos enviado para <strong>{{ obEmail }}</strong>:</label>
+                  <div class="copy-input-row">
+                    <input
+                      v-model="obCode"
+                      type="text"
+                      maxlength="10"
+                      placeholder="Ex: 123456"
+                      class="form-input font-mono"
+                      style="font-size: 15px; letter-spacing: 2px;"
+                      :disabled="obActionLoading"
+                      @keyup.enter="verifyOpenBotCode"
+                    />
+                    <button class="btn btn--small btn--primary" @click="verifyOpenBotCode" :disabled="obActionLoading || !obCode">
+                      {{ obActionLoading ? 'Validando...' : 'Confirmar e Vincular' }}
+                    </button>
+                    <button class="btn btn--small btn--outline" @click="obStep = 'email'" :disabled="obActionLoading">
+                      Voltar
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Alert Feedback -->
+                <div v-if="obError" class="login-alert alert-error">
+                  {{ obError }}
+                </div>
+                <div v-if="obSuccessMsg" class="login-alert alert-success">
+                  {{ obSuccessMsg }}
+                </div>
+
+                <!-- Terminal Command Box -->
+                <div class="terminal-fallback-box">
+                  <span class="fallback-title">Comando alternativo via terminal SSH:</span>
+                  <code>sudo openbot login</code>
+                  <span class="fallback-hint">Após confirmar o código no terminal, execute <code>openbot mobile-connect</code> para gerar o QR code.</span>
                 </div>
               </div>
             </div>
 
             <!-- QR Code Card with High Contrast -->
-            <div class="pair-qr-card">
+            <div v-if="currentQrMode === 'url' || pairData?.is_signed_in" class="pair-qr-card">
               <div v-if="pairLoading" class="qr-placeholder">
                 <span class="spinner" style="width: 32px; height: 32px;" />
                 <span>Gerando QR Code de alto contraste...</span>
@@ -881,7 +1042,7 @@ function statusLabel(status) {
                 </div>
                 <div class="qr-countdown">
                   <span class="dot-online" />
-                  <span>Token válido por: <strong class="font-mono">{{ Math.floor(pairCountdown / 60) }}:{{ (pairCountdown % 60).toString().padStart(2, '0') }}</strong></span>
+                  <span>Código válido por: <strong class="font-mono">{{ Math.floor(pairCountdown / 60) }}:{{ (pairCountdown % 60).toString().padStart(2, '0') }}</strong></span>
                 </div>
               </div>
               <div v-else class="qr-placeholder">
@@ -890,8 +1051,8 @@ function statusLabel(status) {
               </div>
             </div>
 
-            <!-- Direct URL & Manual Parameters -->
-            <div class="pair-manual-info">
+            <!-- Direct URL & Manual Parameters (For Camera Mode) -->
+            <div v-if="currentQrMode === 'url'" class="pair-manual-info">
               <div class="info-group">
                 <label>Link Direto de Conexão Móvel (ou abra pelo celular):</label>
                 <div class="copy-input-row">
@@ -908,8 +1069,8 @@ function statusLabel(status) {
               <div class="info-group">
                 <label>Token de Sessão:</label>
                 <div class="copy-input-row">
-                  <input readonly :value="pairData?.pair_payload?.token || 'Gerando...'" class="form-input font-mono" />
-                  <button class="btn btn--small btn--accent" @click="copyText(pairData?.pair_payload?.token, 'token')">
+                  <input readonly :value="pairData?.token || pairData?.pair_payload?.token || 'Gerando...'" class="form-input font-mono" />
+                  <button class="btn btn--small btn--accent" @click="copyText(pairData?.token || pairData?.pair_payload?.token, 'token')">
                     {{ pairCopiedKey === 'token' ? 'Copiado!' : 'Copiar Token' }}
                   </button>
                 </div>
@@ -1731,6 +1892,118 @@ function statusLabel(status) {
 .link-openbot {
   color: #10b981;
   text-decoration: underline;
+}
+
+/* OpenBot Login & Account State in Modal */
+.openbot-signed-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.openbot-account-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #e4e4e7;
+}
+
+.openbot-login-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.login-notice strong {
+  font-size: 12px;
+  color: #fbbf24;
+  display: block;
+}
+
+.login-notice p {
+  font-size: 11px;
+  color: #d1d5db;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.login-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.login-form-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.login-alert {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.alert-success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+.terminal-fallback-box {
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fallback-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #71717a;
+  letter-spacing: 0.5px;
+}
+
+.terminal-fallback-box code {
+  color: #38bdf8;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.fallback-hint {
+  font-size: 11px;
+  color: #71717a;
+  margin-top: 2px;
 }
 
 .pair-qr-card {
